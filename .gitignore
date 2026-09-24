@@ -1,0 +1,7 @@
+.env
+.venv/
+__pycache__/
+bot.log
+epic_mafia.db
+epic_mafia_night.png
+epic_mafia_state.json

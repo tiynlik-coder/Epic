@@ -1,0 +1,2 @@
+python-telegram-bot[job-queue]>=20,<23
+openpyxl>=3.1

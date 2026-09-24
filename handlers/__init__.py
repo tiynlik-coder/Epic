@@ -1,0 +1,164 @@
+"""Handler registration. Order matters: block guards (group -100) run before everything else."""
+
+from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler, filters
+
+from .other_handlers import (
+    cb_active_role,
+    cb_buy,
+    cb_menu,
+    cb_role,
+    cmd_market,
+    cmd_profile,
+    cmd_start,
+)
+from .game import (
+    cb_action,
+    cb_af,
+    cb_folbin_msg,
+    cb_heroact,
+    cb_join,
+    cb_katani,
+    cb_katani_mode,
+    cb_manip2,
+    cb_mode,
+    cb_prof,
+    cb_prof_target,
+    cb_res,
+    cb_vey1,
+    cb_vey2,
+    cb_vote,
+    cb_zombie,
+    cmd_bounty,
+    cmd_game,
+    cmd_modes,
+    cmd_ngame,
+    cmd_stop,
+    cmd_ugame,
+    cmd_vsgame,
+    cmd_zgame,
+)
+from .admin import (
+    admin_callback,
+    admin_text_handler,
+    cmd_active_games,
+    cmd_admin,
+    cmd_aktiv,
+    cmd_block,
+    cmd_blocks,
+    cmd_broadcast,
+    cmd_bust,
+    cmd_checkgaming,
+    cmd_checkuser,
+    cmd_coin,
+    cmd_gblock,
+    cmd_groups,
+    cmd_gsearch,
+    cmd_gunblock,
+    cmd_heroes,
+    cmd_id,
+    cmd_inventory,
+    cmd_olmos,
+    cmd_pul,
+    cmd_rgm,
+    cmd_stats,
+    cmd_stopgames,
+    cmd_top,
+    cmd_unaktiv,
+    cmd_unblock,
+    cmd_unvip,
+    cmd_vip,
+    cmd_zapravka1,
+    cmd_zapravka7,
+)
+from .geroy_handlers import (
+    hero_callback,
+    hero_private_text,
+)
+from .errors import (
+    error_handler,
+)
+from middlewares.block_guard import (
+    admin_guard_callback,
+    admin_guard_message,
+)
+
+
+def register_handlers(app):
+    app.add_handler(CommandHandler("start",cmd_start))
+    app.add_handler(CommandHandler("game",cmd_game))
+    app.add_handler(CommandHandler("ngame",cmd_ngame))
+    app.add_handler(CommandHandler("ugame",cmd_ugame))
+    app.add_handler(CommandHandler("zgame",cmd_zgame))
+    app.add_handler(CommandHandler("vsgame",cmd_vsgame))
+    for _n in range(2,10):
+        app.add_handler(CommandHandler(f"vsgame{_n}", lambda update, ctx, n=_n: cmd_vsgame(update,ctx,n)))
+    app.add_handler(CommandHandler("bounty",cmd_bounty))
+    app.add_handler(CommandHandler("modes",cmd_modes))
+    app.add_handler(CommandHandler("stop",cmd_stop))
+    app.add_handler(CommandHandler("profile",cmd_profile))
+    app.add_handler(CommandHandler("market",cmd_market))
+    app.add_handler(CommandHandler("admin",cmd_admin))
+    # Admin panel callbacks and hard block guards run before normal handlers.
+    app.add_handler(MessageHandler(filters.ALL, admin_guard_message), group=-100)
+    app.add_handler(CallbackQueryHandler(admin_guard_callback), group=-100)
+    app.add_handler(CommandHandler("aktiv",cmd_aktiv))
+    app.add_handler(CommandHandler("unaktiv",cmd_unaktiv))
+    app.add_handler(CommandHandler("block",cmd_block))
+    app.add_handler(CommandHandler("unblock",cmd_unblock))
+    app.add_handler(CommandHandler("gblock",cmd_gblock))
+    app.add_handler(CommandHandler("ungblock",cmd_gunblock))
+    app.add_handler(CommandHandler("checkuser",cmd_checkuser))
+    app.add_handler(CommandHandler("inventory",cmd_inventory))
+    app.add_handler(CommandHandler("pul",cmd_pul))
+    app.add_handler(CommandHandler("olmos",cmd_olmos))
+    app.add_handler(CommandHandler("coin",cmd_coin))
+    app.add_handler(CommandHandler("bust",cmd_bust))
+    app.add_handler(CommandHandler("blocks",cmd_blocks))
+    app.add_handler(CommandHandler("id",cmd_id))
+    app.add_handler(CommandHandler("gsearch",cmd_gsearch))
+    app.add_handler(CommandHandler("groups",cmd_groups))
+    app.add_handler(CommandHandler("active",cmd_active_games))
+    app.add_handler(CommandHandler("checkgaming",cmd_checkgaming))
+    app.add_handler(CommandHandler("stopgames",cmd_stopgames))
+    app.add_handler(CommandHandler("stats",cmd_stats))
+    app.add_handler(CommandHandler("top",cmd_top))
+    app.add_handler(CommandHandler("gtop",cmd_top))
+    app.add_handler(CommandHandler("gboylar",cmd_top))
+    app.add_handler(CommandHandler("eboylar",cmd_top))
+    app.add_handler(CommandHandler("tchat",cmd_stats))
+    app.add_handler(CommandHandler("tchats",cmd_stats))
+    app.add_handler(CommandHandler("tchat1",cmd_stats))
+    app.add_handler(CommandHandler("tchat7",cmd_stats))
+    app.add_handler(CommandHandler("tchat30",cmd_stats))
+    app.add_handler(CommandHandler("geroys",cmd_heroes))
+    app.add_handler(CommandHandler("rgm",cmd_rgm))
+    app.add_handler(CommandHandler("vip",cmd_vip))
+    app.add_handler(CommandHandler("unvip",cmd_unvip))
+    app.add_handler(CommandHandler("broadcast",cmd_broadcast))
+    app.add_handler(CommandHandler("zapravka1",cmd_zapravka1))
+    app.add_handler(CommandHandler("zapravka7",cmd_zapravka7))
+    app.add_handler(CallbackQueryHandler(admin_callback, pattern=r"^admin:"))
+    app.add_handler(CallbackQueryHandler(cb_active_role, pattern=r"^ar:"))
+    app.add_handler(CallbackQueryHandler(cb_join,r"^join:"))
+    app.add_handler(CallbackQueryHandler(cb_mode,r"^mode:"))
+    app.add_handler(CallbackQueryHandler(cb_action,r"^act:"))
+    app.add_handler(CallbackQueryHandler(cb_manip2,r"^manip2:"))
+    app.add_handler(CallbackQueryHandler(cb_res,r"^res:"))
+    app.add_handler(CallbackQueryHandler(cb_zombie,r"^zombie:"))
+    app.add_handler(CallbackQueryHandler(cb_katani_mode,r"^katani_mode:"))
+    app.add_handler(CallbackQueryHandler(cb_katani,r"^katani:"))
+    app.add_handler(CallbackQueryHandler(cb_prof,r"^prof:"))
+    app.add_handler(CallbackQueryHandler(cb_prof_target,r"^prof_target:"))
+    app.add_handler(CallbackQueryHandler(cb_vey1,r"^vey1:"))
+    app.add_handler(CallbackQueryHandler(cb_vey2,r"^vey2:"))
+    app.add_handler(CallbackQueryHandler(cb_menu,r"^menu:"))
+    app.add_handler(CallbackQueryHandler(cb_role,r"^role:\d+$"))
+    app.add_handler(CallbackQueryHandler(hero_callback,r"^hero:"))
+    app.add_handler(CallbackQueryHandler(cb_heroact,r"^heroact:"))
+    app.add_handler(CallbackQueryHandler(cb_buy,r"^buy:"))
+    app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE & ~filters.COMMAND, admin_text_handler), group=1)
+    app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE & ~filters.COMMAND, hero_private_text), group=2)
+    app.add_handler(CallbackQueryHandler(cb_vote,r"^(vote|skip):"))
+    app.add_handler(CallbackQueryHandler(cb_af,r"^af:"))
+    app.add_handler(CallbackQueryHandler(cb_folbin_msg,r"^(read_f|cancel_f):"))
+    app.add_error_handler(error_handler)
