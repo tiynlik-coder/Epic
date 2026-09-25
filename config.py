@@ -88,7 +88,7 @@ EMOJI = {
     "Zodagon":"👑", "Kamikaze":"💥", "Omadli":"🤞🏼", "Janob":"🎖",
     "Don":"🤵🏻", "Mafia":"🧑🏻‍💼", "Advokat":"⚖️", "Ayg‘oqchi":"🦇", "Labarant":"🧪", "Manipulyator":"🪄",
     "Ruhoniy":"✝️", "Undiruvchi":"💰",
-    "Qotil":"🔪", "Minior":"☠️", "Snayper":"👨🏻‍🎤", "Suidsid":"🪢", "La’natchi":"🕸️", "Professor":"🎩",
+    "Qotil":"🔪", "Minior":"☠️", "Snayper":"👨🏻‍🎤", "Suidsid":"🪢", "La’natchi":"🀄", "Professor":"🎩",
     "Sehrgar":"🧙‍♀️", "Afsungar":"💣", "Veyron":"🧲", "Qorbobo":"🎅", "Qorbola":"🌨️", "Tabib":"🩺",
     "Bo‘ri":"🐺", "Joker":"🤡", "Kimyogar":"👨‍🔬", "Rais":"🤑",
     "Konchi":"👷🏻‍♂️", "Tulki":"🦊", "Zombi":"🧟",

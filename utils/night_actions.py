@@ -48,7 +48,7 @@ NIGHT_PROMPTS = {
     "Sotqin":"🦎 Bugun kimni tanlaymiz?",
     "Folbin":"🧿 Bugun kimning tarafini aniqlaymiz?",
     "Zodagon":"👑 Bugun kimni tanlaymiz?",
-    "La’natchi":"🕸️ Bugun kimni la’natlaymiz?",
+    "La’natchi":"🀄 Bugun kimni la’natlaymiz?",
     "Qotil":"🔪 Bugun kimni nishonga olamiz?",
     "Minior":"☠️ Kimning eshigiga mina qo‘yamiz?",
     "Snayper":"👨🏻‍🎤 Bugun kimni nishonga olamiz?",
