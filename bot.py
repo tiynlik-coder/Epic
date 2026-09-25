@@ -36,6 +36,7 @@ async def setup_bot_commands(app):
         BotCommand("ngame", "Name mode"),
         BotCommand("ugame", "Uniform mode"),
         BotCommand("zgame", "Zombie mode"),
+        BotCommand("pgame", "Para mode (juftlar)"),
         BotCommand("vsgame", "VS mode"),
         BotCommand("vsgame2", "VS — 2 jamoa"),
         BotCommand("vsgame3", "VS — 3 jamoa"),

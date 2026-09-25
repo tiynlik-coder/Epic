@@ -148,6 +148,9 @@ _TABLES = [
     """CREATE TABLE IF NOT EXISTS admin_vips(
         user_id BIGINT PRIMARY KEY, created_at DOUBLE PRECISION DEFAULT 0
     )""",
+    """CREATE TABLE IF NOT EXISTS pairs(
+        user_id BIGINT PRIMARY KEY, partner_id BIGINT NOT NULL, created_at DOUBLE PRECISION DEFAULT 0
+    )""",
     """CREATE TABLE IF NOT EXISTS chat_settings(
         chat_id BIGINT PRIMARY KEY, data TEXT DEFAULT '{}', updated_at DOUBLE PRECISION DEFAULT 0
     )""",

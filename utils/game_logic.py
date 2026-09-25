@@ -12,14 +12,15 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from telegram.constants import ParseMode
 from telegram.error import TelegramError
 
-from config import EMOJI, MAFIA, UNIFORM_KILLERS, WIN_REWARD
+from config import EMOJI, MAFIA, MIN_PLAYERS, UNIFORM_KILLERS, WIN_REWARD
 from models.chat_settings import get_settings, item_enabled
 from models.database import db
+from models.pairs import partner_of
 from models.users import add_stats, consume_inventory, inv
 from utils.game_roles import apply_admin_roles, build_role_list
 from utils.night_actions import expects_action, offer_night_action, resolve_night_effects, send_zombie_rosters, zombie_convert_job
 from utils.players import NIGHT_FIELDS, getp, kill_player, living, mention, numbered_name, role_label, role_lists, side, team_icon, visible_mention, visible_name
-from utils.state import cancel_jobs, find_game, games, persist_games, refund_bounties, schedule_phase, valid_job
+from utils.state import cancel_game, cancel_jobs, find_game, games, persist_games, refund_bounties, schedule_phase, valid_job
 from utils.telegram_utils import is_epic_channel_member, night_image_path, send_private, unpin_lobby
 from utils.texts import ROLE_INTRO
 from utils.victory import game_over, winners
@@ -55,6 +56,7 @@ async def start_game(app,g):
     cancel_jobs(g); g["phase"]="starting"; g["phase_id"]+=1; g["start_time"]=time.time()
     settings=g["settings"]=get_settings(g["chat_id"])
     g["roleset"]=settings["roleset"]; g["wolf"]=settings["wolf"]
+    if g.get("mode")=="para" and not await seat_pairs(app.bot,g): return
     n=len(g["players"])
     if g.get("mode") == "uniform":
         chosen=random.choice(UNIFORM_KILLERS)
@@ -101,6 +103,36 @@ async def start_game(app,g):
     await app.bot.send_message(g["chat_id"],"⚔️ <b>VS O‘YIN BOSHLANDI!</b>" if g.get("mode")=="vs" else "🎭 <b>O‘YIN BOSHLANDI!</b>",parse_mode=ParseMode.HTML)
     await unpin_lobby(app.bot,g)
     g["phase"]="night"; g["phase_id"]+=1; g["night"]=1; await start_night(app,g)
+
+
+async def seat_pairs(bot,g):
+    """Para mode: only players whose partner also joined play. False when too few are left."""
+    ids=set(g["players"]); pairs=[]; seated=set()
+    for uid in sorted(ids):
+        pid=partner_of(uid)
+        if pid in ids and uid not in seated and pid not in seated:
+            pairs.append([uid,pid]); seated|={uid,pid}
+    dropped=[g["players"].pop(u) for u in ids-seated]
+    if dropped:
+        await bot.send_message(g["chat_id"],"💔 Juftisiz qolganlar o‘yinga kirmadi: "+", ".join(mention(p) for p in dropped),parse_mode=ParseMode.HTML)
+    if len(g["players"])<MIN_PLAYERS:
+        cancel_game(g); await unpin_lobby(bot,g)
+        await bot.send_message(g["chat_id"],"🛑 Para o‘yini uchun juftlar yetarli emas. O‘yin bekor qilindi.")
+        return False
+    g["pairs"]=pairs
+    return True
+
+
+async def para_followers(bot,g):
+    """Para mode: when one partner dies the other leaves too (unless the dead one was a Suidsid, Afsungar or G‘azabkor)."""
+    if g.get("mode")!="para": return
+    for a,b in g.get("pairs") or []:
+        pa,pb=getp(g,a),getp(g,b)
+        if not pa or not pb or pa["alive"]==pb["alive"]: continue
+        dead,alive_one=(pa,pb) if not pa["alive"] else (pb,pa)
+        if dead["role"] in {"Suidsid","Afsungar","G‘azabkor"}: continue
+        kill_player(alive_one,"para")
+        await bot.send_message(g["chat_id"],f"💔 {visible_mention(g,alive_one,True)} sherigi o‘lgani uchun o‘yindan chiqdi. U {role_label(alive_one['role'])} edi.",parse_mode=ParseMode.HTML)
 
 
 async def send_team_rosters(bot,g):
@@ -189,6 +221,7 @@ async def start_day(app,g):
     if g["ended"]: return
     cancel_jobs(g)
     # Promotions happen before terminal-win evaluation.
+    await para_followers(app.bot,g)
     await promote_successors(app.bot,g)
     if game_over(g): return await end_game(app,g)
     nd=g.get("night_deaths",[])
@@ -411,6 +444,7 @@ async def after_vote(app,g):
     if g.get("ended"): return
     cancel_jobs(g)
     await expire_joker_cards(app.bot,g)
+    await para_followers(app.bot,g)
     await promote_successors(app.bot,g)
     if g.get("forced_winners"):
         return await end_game(app,g,g["forced_winners"])

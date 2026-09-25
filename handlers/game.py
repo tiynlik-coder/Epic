@@ -44,6 +44,11 @@ async def cmd_zgame(update:Update,ctx:ContextTypes.DEFAULT_TYPE):
     return await create_lobby(update,ctx,"zombie",None)
 
 
+async def cmd_pgame(update:Update,ctx:ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.type not in {ChatType.GROUP,ChatType.SUPERGROUP}: return
+    return await create_lobby(update,ctx,"para",None)
+
+
 async def cmd_vsgame(update:Update,ctx:ContextTypes.DEFAULT_TYPE, teams_override=None):
     if update.effective_chat.type not in {ChatType.GROUP,ChatType.SUPERGROUP}: return
     raw=(update.message.text or "").strip().lower()

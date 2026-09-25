@@ -26,4 +26,4 @@ def name_buttons(g, prefix, uid, allow_self=False):
 
 
 def modes_keyboard():
-    return InlineKeyboardMarkup([[InlineKeyboardButton("🏷️ Name mode",callback_data="mode:name")],[InlineKeyboardButton("🎭 Uniform mode",callback_data="mode:uniform")],[InlineKeyboardButton("🧟 Zombie mode",callback_data="mode:zombie")],[InlineKeyboardButton("⚔️ VS mode",callback_data="mode:vs")]])
+    return InlineKeyboardMarkup([[InlineKeyboardButton("🏷️ Name mode",callback_data="mode:name")],[InlineKeyboardButton("🎭 Uniform mode",callback_data="mode:uniform")],[InlineKeyboardButton("🧟 Zombie mode",callback_data="mode:zombie")],[InlineKeyboardButton("⚔️ VS mode",callback_data="mode:vs")],[InlineKeyboardButton("💞 Para mode",callback_data="mode:para")],[InlineKeyboardButton("🎯 Real rollar",callback_data="mode:real")]])

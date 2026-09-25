@@ -30,7 +30,7 @@ def lobby_player_list(g):
 
 
 def standard_lobby_text(g):
-    title={"name":"🏷️ Name mode","uniform":"🎭 Uniform mode","zombie":"🧟 Zombie mode"}.get(g.get("mode"))
+    title={"name":"🏷️ Name mode","uniform":"🎭 Uniform mode","zombie":"🧟 Zombie mode","para":"💞 Para mode — faqat juftlar o‘ynaydi (/para)"}.get(g.get("mode"))
     head=f"{title}\n\n" if title else ""
     return "📌 <b>Ro‘yxatdan o‘tish boshlandi!</b>\n\n"+head+"⏳ Ro‘yxatdan o‘tish: <b>30 daqiqa</b>" + lobby_player_list(g)
 

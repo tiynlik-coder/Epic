@@ -438,8 +438,9 @@ async def resolve_night_effects(ctx,g):
             await bot.send_message(g["chat_id"],f"⚠️ {role_label(kr)} Sehrgarni o‘ldirishga urindi! 🧙‍♀️ Sehrgar uni kechiradimi yoki o‘ldiradimi? Buni tongda bilamiz.")
             await send_private(bot,target["id"],f"⚠️ {mention(actor)} ({role_label(kr)}) sizni o‘ldirishga urindi!\nEndi uning taqdirini siz hal qilasiz.",InlineKeyboardMarkup([[InlineKeyboardButton("🕊️ Kechirish",callback_data=f"af:{g['id']}:{target['id']}:{actor['id']}:forgive")],[InlineKeyboardButton("☠️ O‘ldirish",callback_data=f"af:{g['id']}:{target['id']}:{actor['id']}:kill")]]))
             return False
-        if target["role"]=="Bo‘ri" and kr in {"Komissar Katani","Don","Mafia"}:
-            target["role"]="Serjant" if kr=="Komissar Katani" else "Mafia"
+        wolf_turns=kr in {"Komissar Katani","Don","Mafia"} or (kr=="Qotil" and g.get("roleset")=="real")
+        if target["role"]=="Bo‘ri" and wolf_turns:
+            target["role"]={"Komissar Katani":"Serjant","Qotil":"Qotil"}.get(kr,"Mafia")
             await bot.send_message(g["chat_id"],f"🐺 Bo‘ri {role_label(target['role'])}ga aylandi!")
             await send_private(bot,target["id"],f"🐺 Siz endi {role_label(target['role'])}siz!")
             return False

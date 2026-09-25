@@ -106,3 +106,35 @@ class DayTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ModeTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls): init_db()
+
+    def test_real_mode_needs_a_single_side(self):
+        from utils.victory import game_over, winners
+        g = game("Tinch axoli", "Qorbobo", base=3200); g["roleset"] = "real"
+        self.assertFalse(game_over(g))           # a survival solo does not share the town's win
+        g["players"][3201]["alive"] = False
+        self.assertTrue(game_over(g)); self.assertEqual([p["role"] for p in winners(g)], ["Tinch axoli"])
+
+    def test_real_mode_last_two(self):
+        from utils.victory import winners
+        g = game("Don", "Tinch axoli", base=3210); g["roleset"] = "real"
+        self.assertEqual([p["role"] for p in winners(g)], ["Don"])
+
+    def test_para_last_pair_wins_and_partner_follows(self):
+        from utils.victory import game_over, winners
+        g = day_game("Tinch axoli", "Don", "Shifokor", "Mafia", base=3220)
+        g["mode"] = "para"; g["pairs"] = [[3220, 3221], [3222, 3223]]
+        g["players"][3222]["alive"] = False
+        asyncio.run(game_logic.para_followers(FakeApp().bot, g))
+        self.assertFalse(g["players"][3223]["alive"])
+        self.assertTrue(game_over(g)); self.assertEqual(len(winners(g)), 2)
+        games.clear()
+
+    def test_pairs_are_exclusive(self):
+        from models.pairs import make_pair, partner_of
+        make_pair(3301, 3302); make_pair(3301, 3303)
+        self.assertEqual(partner_of(3301), 3303); self.assertIsNone(partner_of(3302))

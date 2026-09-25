@@ -38,6 +38,7 @@ from .game import (
     cmd_bounty,
     cmd_game,
     cmd_modes,
+    cmd_pgame,
     cmd_ngame,
     cmd_stop,
     cmd_ugame,
@@ -94,6 +95,12 @@ from .game_chat import (
     group_write_guard,
     private_game_text,
 )
+from .pairs import (
+    cb_para,
+    cmd_dpara,
+    cmd_mypara,
+    cmd_para,
+)
 from .settings import (
     cb_settings,
     cmd_settings,
@@ -125,6 +132,10 @@ def register_handlers(app):
     app.add_handler(CommandHandler("stop",cmd_stop))
     app.add_handler(CommandHandler("leave",cmd_leave))
     app.add_handler(CommandHandler(["settings","sozlamalar"],cmd_settings))
+    app.add_handler(CommandHandler("pgame",cmd_pgame))
+    app.add_handler(CommandHandler("para",cmd_para))
+    app.add_handler(CommandHandler("mypara",cmd_mypara))
+    app.add_handler(CommandHandler("dpara",cmd_dpara))
     app.add_handler(CommandHandler("tep",cmd_tep))
     app.add_handler(CommandHandler("profile",cmd_profile))
     app.add_handler(CommandHandler("market",cmd_market))
@@ -192,6 +203,7 @@ def register_handlers(app):
     app.add_handler(CallbackQueryHandler(cb_hang,r"^hang:"))
     app.add_handler(CallbackQueryHandler(cb_afs,r"^afs:"))
     app.add_handler(CallbackQueryHandler(cb_settings,r"^cset:"))
+    app.add_handler(CallbackQueryHandler(cb_para,r"^para:"))
     app.add_handler(CallbackQueryHandler(ignore_button,r"^ignore$"))
     app.add_handler(CallbackQueryHandler(cb_res,r"^res:"))
     app.add_handler(CallbackQueryHandler(cb_zombie,r"^zombie:"))

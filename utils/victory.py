@@ -1,6 +1,6 @@
 """Win conditions."""
 
-from config import CONDITIONAL_SOLO, HOSTILE_SOLO, MAFIA, SURVIVAL_SOLO, TOWN
+from config import CONDITIONAL_SOLO, HOSTILE_SOLO, MAFIA, SOLO, SURVIVAL_SOLO, TOWN
 from utils.players import living
 
 
@@ -20,8 +20,40 @@ def zombie_mode_winner(players):
     return []
 
 
+def real_mode_result(ps):
+    """Real role set (Baku): a side wins only when it is the only one left; no mixed wins.
+    With two players left: Don beats anyone but the Komissar, the Komissar anyone but the Don,
+    and a Qotil wins. Returns the winners, or None while the game goes on."""
+    if not ps: return []
+    for side in (TOWN, MAFIA, SOLO):
+        if all(p["role"] in side for p in ps): return list(ps)
+    if len(ps)==2:
+        a,b=ps
+        for x,y in ((a,b),(b,a)):
+            if x["role"]=="Don" and y["role"]!="Komissar Katani": return [x]
+            if x["role"]=="Komissar Katani" and y["role"]!="Don": return [x]
+        killers=[p for p in ps if p["role"]=="Qotil"]
+        if killers: return killers
+    return None
+
+
+def last_pair(g, ps):
+    """Para mode: the survivors are one registered pair (or what is left of it)."""
+    if not ps or len(ps)>2: return None
+    ids={p["id"] for p in ps}
+    for a,b in g.get("pairs") or []:
+        if ids<= {a,b}: return list(ps)
+    return None
+
+
+def is_real(g):
+    return g.get("roleset")=="real" and g.get("mode") not in {"vs","zombie","uniform"}
+
+
 def winners(g):
     ps=living(g)
+    if g.get("mode")=="para" and last_pair(g,ps): return last_pair(g,ps)
+    if is_real(g): return real_mode_result(ps) or []
     if g.get("mode") == "vs" and ps:
         teams={p.get("team") for p in ps if p.get("team")}
         if len(teams) == 1:
@@ -50,6 +82,8 @@ def game_over(g):
     if not ps: return True
     if g.get("mode") == "uniform":
         return len(ps) <= 1
+    if g.get("mode") == "para" and last_pair(g,ps): return True
+    if is_real(g): return real_mode_result(ps) is not None
     if g.get("mode") == "vs":
         teams={p.get("team") for p in ps if p.get("team")}
         return len(teams) <= 1
