@@ -20,8 +20,10 @@ def new_player(u):
 
 
 def mention(p):
-    name=html.escape(str(p.get("name") or "O‘yinchi"))
-    return f'<a href="tg://user?id={p["id"]}">{name}</a>'
+    try: uid=int(p.get("id"))
+    except (TypeError,ValueError): uid=0
+    name=str(p.get("name") or "").strip() or "O‘yinchi"
+    return f'<a href="tg://user?id={uid}">{html.escape(name)}</a>'
 
 
 def side(r):

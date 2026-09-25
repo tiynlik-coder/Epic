@@ -7,14 +7,16 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ChatType, ParseMode
 from telegram.ext import ContextTypes
 
-from config import ADMIN_ACTIVE_ROLE_PRICES, EPIC_CHANNEL_URL, EPIC_SUPPORT_URL, HERO_PROTECTION_PRICE, ROLES
+from config import ADMIN_ACTIVE_ROLE_PRICES, ADMIN_ID, EPIC_CHANNEL_URL, EPIC_SUPPORT_URL, HERO_PROTECTION_PRICE, MIN_PLAYERS, ROLES
 from handlers.geroy_handlers import show_hero
 from keyboards.main_keyboard import main_menu
 from keyboards.user_keyboards import active_role_market_markup, market_keyboard, profile_markup, roles_menu_markup
 from models.database import db
 from models.users import buy, ensure_user, grant_first_start
+from utils.game_logic import start_game
 from utils.lobby import join_lobby_deeplink, join_vs_deeplink
 from utils.profile import active_role_text, build_profile_text
+from utils.state import games
 from utils.telegram_utils import cb_answer, safe_edit
 from utils.texts import MARKET_TEXT, START_PRIVATE_TEXT, role_detail_text, roles_menu_text
 
@@ -27,6 +29,22 @@ async def cmd_start(update:Update,ctx:ContextTypes.DEFAULT_TYPE):
         if await join_vs_deeplink(update,ctx,ctx.args[0]):
             return
     if update.effective_chat.type in {ChatType.GROUP,ChatType.SUPERGROUP}:
+        g=games.get(update.effective_chat.id)
+        if g and g.get("phase")=="lobby":
+            if update.effective_user.id!=ADMIN_ID:
+                member=await ctx.bot.get_chat_member(update.effective_chat.id,update.effective_user.id)
+                if member.status not in {"administrator","creator"}:
+                    return await update.message.reply_text("❌ O‘yinni faqat guruh adminlari boshlay oladi.")
+            n=len(g.get("players",{}))
+            if n>=MIN_PLAYERS:
+                if g.get("mode")=="vs":
+                    teams=int(g.get("mode_state",{}).get("teams_count",2))
+                    active={p.get("team") for p in g["players"].values() if p.get("team")}
+                    if len(active)<teams:
+                        return await update.message.reply_text("❌ VS o‘yini uchun har bir jamoada kamida 1 ta o‘yinchi bo‘lishi kerak.")
+                await start_game(ctx.application,g)
+                return
+            return await update.message.reply_text(f"👥 Hozir {n} ta o‘yinchi. O‘yinni boshlash uchun kamida {MIN_PLAYERS} ta kerak.")
         await update.message.reply_text("🤖 Epic Mafia bot ishlayapti. O‘yinni boshlash uchun /game yuboring.")
         return
     grant_first_start(update.effective_user.id)

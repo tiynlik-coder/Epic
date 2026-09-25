@@ -49,6 +49,14 @@ class VictoryTests(unittest.TestCase):
     def test_suidsid_does_not_win_without_hanging(self):
         self.assertEqual(won(make_game(["Shifokor", "Suidsid"])), ["Shifokor"])
 
+    def test_zodagon_wins_with_town_and_lanatchi_survives(self):
+        self.assertEqual(won(make_game(["Zodagon", "La’natchi"])), ["La’natchi", "Zodagon"])
+
+    def test_kamikaze_wins_after_retaliation(self):
+        g = make_game(["Kamikaze", "Don", "Mafia"])
+        g["players"][1]["alive"] = False; g["players"][1]["kamikaze_used"] = True
+        self.assertIn("Kamikaze", won(g))
+
     def test_zombie_mode(self):
         g = make_game(["Zombi", "Zombi", "Shifokor"], "zombie")
         g["players"][3]["alive"] = False
@@ -117,7 +125,7 @@ class WiringTests(unittest.TestCase):
     def test_all_handlers_registered(self):
         import bot
         app = bot.build_app("123:TEST")
-        self.assertEqual(sum(len(h) for h in app.handlers.values()), 82)
+        self.assertEqual(sum(len(h) for h in app.handlers.values()), 92)
 
 
 if __name__ == "__main__":

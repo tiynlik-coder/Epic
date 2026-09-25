@@ -49,12 +49,12 @@ ROLES = [
     "Qotil", "Minior", "Snayper", "Suidsid", "La’natchi", "Professor",
     "Afsungar", "Kamikaze", "Veyron", "Qorbobo", "Qorbola", "Tabib",
 ]
-TOWN = {"Tinch axoli", "Shifokor", "Daydi", "Komissar Katani", "Kezuvchi", "Serjant", "Koldun", "Sotqin", "Folbin", "Kamikaze"}
+TOWN = {"Tinch axoli", "Shifokor", "Daydi", "Komissar Katani", "Kezuvchi", "Serjant", "Koldun", "Sotqin", "Folbin", "Zodagon", "Kamikaze"}
 MAFIA = {"Don", "Mafia", "Advokat", "Ayg‘oqchi", "Labarant", "Manipulyator", "Ruhoniy", "Undiruvchi"}
 SOLO = set(ROLES) - TOWN - MAFIA
 # Solo killers win only when they outlast both factions; survival solos win just by staying alive.
 HOSTILE_SOLO = {"Qotil", "Minior", "Snayper", "Professor", "Qorbola"}
-SURVIVAL_SOLO = {"Afsungar", "Veyron", "Tabib", "Qorbobo"}
+SURVIVAL_SOLO = {"Afsungar", "Veyron", "Tabib", "Qorbobo", "La’natchi"}
 WIN_REWARD = 100
 
 EMOJI = {

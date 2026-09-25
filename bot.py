@@ -17,27 +17,15 @@ from utils.state import load_games_state
 
 
 async def setup_bot_commands(app):
-    # Private chat: exactly these three commands.
-    await app.bot.set_my_commands([
+    # Shaxsiy chatda faqat /start va /profile ko'rinadi.
+    # Guruh menyusi to'liq qaytarildi. Qolgan buyruqlar yozib ishlatilaveradi.
+    private_cmds = [
         BotCommand("start", "Botni qayta ishga tushirish"),
         BotCommand("profile", "Profilni ko‘rish"),
-        BotCommand("market", "Market"),
-    ], scope=BotCommandScopeAllPrivateChats())
+    ]
+    await app.bot.set_my_commands(private_cmds, scope=BotCommandScopeAllPrivateChats())
+    await app.bot.set_my_commands(private_cmds, scope=BotCommandScopeChat(ADMIN_ID))
 
-    # Bot owner's private chat: player commands plus admin commands.
-    await app.bot.set_my_commands([
-        BotCommand("start", "Botni qayta ishga tushirish"),
-        BotCommand("profile", "Profilni ko‘rish"),
-        BotCommand("market", "Market"),
-        BotCommand("admin", "Admin paneli"),
-        BotCommand("stats", "Statistika"),
-        BotCommand("checkuser", "Userni tekshirish"),
-        BotCommand("block", "Userni bloklash"),
-        BotCommand("unblock", "Userni blokdan chiqarish"),
-        BotCommand("broadcast", "Hammaga xabar yuborish"),
-    ], scope=BotCommandScopeChat(ADMIN_ID))
-
-    # Group chat: gameplay commands only. Admin commands still work but are not advertised.
     group_commands = [
         BotCommand("start", "Botni qayta ishga tushirish"),
         BotCommand("game", "Oddiy o‘yinni boshlash"),

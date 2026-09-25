@@ -37,6 +37,8 @@ def winners(g):
     elif not t and not m: result += h
     # Survival solos win just by being alive at the end.
     result += [p for p in ps if p["role"] in SURVIVAL_SOLO]
+    # Kamikaze also wins on its own (even dead) once its retaliation took its killers down.
+    result += [p for p in g["players"].values() if p["role"]=="Kamikaze" and p.get("kamikaze_used")]
     uniq=[]; seen=set()
     for p in result:
         if p["id"] not in seen: uniq.append(p); seen.add(p["id"])

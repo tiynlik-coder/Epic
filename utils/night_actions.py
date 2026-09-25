@@ -144,7 +144,6 @@ async def resolve_night_effects(ctx,g):
         if ability_role(p)=="Kezuvchi" and p["action"] and p["action"].get("target"):
             t=getp(g,p["action"]["target"])
             if t: blocks[t["id"]]=True; t["blocked"]=True
-            p["visits"].append(t["id"] if t else None)
     # Veyron's swap applies on the NEXT night only. It never changes roles/factions.
     g.setdefault("next_ability_swaps", {})
     g["next_ability_swaps"]={}
@@ -237,7 +236,9 @@ async def resolve_night_effects(ctx,g):
         elif er=="Minior": attacks.append((actor,target,"Minior"))
         elif er=="Professor" and a.get("type")=="professor" and a.get("choice")=="death": attacks.append((actor,target,"Professor"))
         elif er=="Komissar Katani" and typ=="check":
-            result="Tinch aholi" if target["role"] in TOWN else "Mafia/Yakka"
+            # Advokat's protection and a Fake Document both make the target read as Town.
+            looks_town=target["role"] in TOWN or target.get("advokat_result") or target.get("fake_document")
+            result="Tinch aholi" if looks_town else "Mafia/Yakka"
             await send_private(ctx.bot,actor["id"],f"🕵🏻‍♂️ Tekshiruv natijasi: {mention(target)} — {result}.")
         elif er=="Komissar Katani" and typ=="kill": attacks.append((actor,target,"Komissar Katani"))
         elif er=="Koldun":
@@ -267,7 +268,7 @@ async def resolve_night_effects(ctx,g):
                 amount=random.randint(1,200); con=db(); con.execute("UPDATE users SET money=money+? WHERE user_id=?",(amount,target["id"])); con.commit(); con.close(); await ctx.bot.send_message(g["chat_id"],"👑 Zodagon kimnidir xursand qilmoqchi.")
         elif er=="Folbin":
             result="Tinch aholi" if target["role"] in TOWN else "Mafia" if target["role"] in MAFIA else "Yakka"
-            if target.get("advokat_result"): result="Tinch aholi"
+            if target.get("advokat_result") or target.get("fake_document"): result="Tinch aholi"
             await send_private(ctx.bot,actor["id"],f"🧿 Tonggi natija: {mention(target)} — {result} taraf.")
             for cp in living(g):
                 if ability_role(cp)=="Komissar Katani":

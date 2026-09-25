@@ -28,6 +28,16 @@ async def cb_answer(q, text=None, alert=False):
     except TelegramError: pass
 
 
+async def unpin_lobby(bot, g):
+    """Lobby pini faqat o‘yin boshlangunicha yoki bekor qilingunicha turadi."""
+    try:
+        mid=g.get("lobby_message_id")
+        if not mid: return
+        await bot.unpin_chat_message(chat_id=g.get("chat_id"),message_id=mid)
+    except TelegramError: pass
+    except Exception: pass
+
+
 async def send_private(bot, uid, text, markup=None):
     global _PRIVATE_SEND_LAST
     try:

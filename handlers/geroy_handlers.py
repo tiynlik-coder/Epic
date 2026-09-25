@@ -13,6 +13,20 @@ from models.heroes import hero_damage_range, hero_level, hero_max_shield, hero_r
 from utils.telegram_utils import cb_answer, safe_edit
 
 
+def _charge(uid, currency, cost, hero_sql, hero_args):
+    """Take `cost` from the balance and apply the hero change in one transaction; False if funds are short."""
+    con=db()
+    try:
+        con.execute("BEGIN IMMEDIATE")
+        cur=con.execute(f"UPDATE users SET {currency}={currency}-? WHERE user_id=? AND {currency}>=?",(cost,uid,cost))
+        if cur.rowcount!=1:
+            con.rollback(); return False
+        con.execute(hero_sql,hero_args)
+        con.commit(); return True
+    finally:
+        con.close()
+
+
 async def show_hero(q, uid):
     await safe_edit(q, hero_text(uid), hero_menu_markup(uid))
 
@@ -84,24 +98,21 @@ async def hero_callback(update,ctx):
         return await show_hero(q,uid)
     if not h: return await cb_answer(q,"🥷 Sizda Geroy mavjud emas.",True)
     if action=="ball":
-        con=db(); r=con.execute("SELECT diamonds FROM users WHERE user_id=?",(uid,)).fetchone()
-        if not r or r[0] < HERO_BALL_PRICE: con.close(); return await cb_answer(q,"Sizda yetarli 💎 mavjud emas❌",True)
-        ball=h["ball"]+1000; lvl=hero_level(ball)
-        con.execute("UPDATE users SET diamonds=diamonds-? WHERE user_id=?",(HERO_BALL_PRICE,uid)); con.execute("UPDATE heroes SET ball=?,level=? WHERE user_id=?",(ball,lvl,uid)); con.commit(); con.close()
+        # Level is computed in SQL from the stored ball (same formula as hero_level) so rapid taps stay consistent.
+        if not _charge(uid,"diamonds",HERO_BALL_PRICE,"UPDATE heroes SET ball=ball+1000,level=MAX(1,(ball+1000)/1100+1) WHERE user_id=?",(uid,)):
+            return await cb_answer(q,"Sizda yetarli 💎 mavjud emas❌",True)
         return await show_hero(q,uid)
     if action=="shield":
         cost=HERO_SHIELD_BASE+h["level"]*100; mx=hero_max_shield(h["level"])
         if h["shield"]>=mx: return await cb_answer(q,"Geroyingizda maksimal himoya bor.",True)
-        con=db(); r=con.execute("SELECT money FROM users WHERE user_id=?",(uid,)).fetchone()
-        if not r or r[0]<cost: con.close(); return await cb_answer(q,"Sizda yetarli 💷 mavjud emas❌",True)
-        con.execute("UPDATE users SET money=money-? WHERE user_id=?",(cost,uid)); con.execute("UPDATE heroes SET shield=? WHERE user_id=?",(mx,uid)); con.commit(); con.close()
+        if not _charge(uid,"money",cost,"UPDATE heroes SET shield=? WHERE user_id=?",(mx,uid)):
+            return await cb_answer(q,"Sizda yetarli 💷 mavjud emas❌",True)
         return await show_hero(q,uid)
     if action=="gun":
         cost=HERO_GUN_BASE+h["level"]*100
         if h["patron"]>=10: return await cb_answer(q,"Geroyingizda maksimal zaryad bor.",True)
-        con=db(); r=con.execute("SELECT money FROM users WHERE user_id=?",(uid,)).fetchone()
-        if not r or r[0]<cost: con.close(); return await cb_answer(q,"Sizda yetarli 💷 mavjud emas❌",True)
-        con.execute("UPDATE users SET money=money-? WHERE user_id=?",(cost,uid)); con.execute("UPDATE heroes SET patron=10 WHERE user_id=?",(uid,)); con.commit(); con.close()
+        if not _charge(uid,"money",cost,"UPDATE heroes SET patron=10 WHERE user_id=?",(uid,)):
+            return await cb_answer(q,"Sizda yetarli 💷 mavjud emas❌",True)
         return await show_hero(q,uid)
     if action=="name":
         ctx.user_data["hero_rename_pending"]=True
@@ -125,12 +136,10 @@ async def hero_private_text(update,ctx):
     if ctx.user_data.get("hero_rename_pending"):
         h=hero_row(uid)
         if not h: ctx.user_data.pop("hero_rename_pending",None); return False
-        con=db(); r=con.execute("SELECT money FROM users WHERE user_id=?",(uid,)).fetchone()
-        if not r or r[0]<HERO_NAME_PRICE:
-            con.close(); await update.message.reply_text("Sizda yetarli 💷 mavjud emas❌"); return True
         if not 2<=len(text)<=24:
             await update.message.reply_text("Geroy nomi 2–24 belgidan iborat bo‘lsin."); return True
-        con.execute("UPDATE users SET money=money-? WHERE user_id=?",(HERO_NAME_PRICE,uid)); con.execute("UPDATE heroes SET name=? WHERE user_id=?",(text,uid)); con.commit(); con.close()
+        if not _charge(uid,"money",HERO_NAME_PRICE,"UPDATE heroes SET name=? WHERE user_id=?",(text,uid)):
+            await update.message.reply_text("Sizda yetarli 💷 mavjud emas❌"); return True
         ctx.user_data.pop("hero_rename_pending",None); await update.message.reply_text("✅ Geroy nomi o‘zgartirildi!"); return True
     if ctx.user_data.get("hero_market_pending"):
         try: price=int(text)

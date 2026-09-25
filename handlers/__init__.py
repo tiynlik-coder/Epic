@@ -47,9 +47,12 @@ from .admin import (
     cmd_blocks,
     cmd_broadcast,
     cmd_bust,
+    cmd_bust1,
+    cmd_bust2,
     cmd_checkgaming,
     cmd_checkuser,
     cmd_coin,
+    cmd_fullbust,
     cmd_gblock,
     cmd_groups,
     cmd_gsearch,
@@ -59,7 +62,12 @@ from .admin import (
     cmd_inventory,
     cmd_olmos,
     cmd_pul,
+    cmd_rgeroy,
     cmd_rgm,
+    cmd_scoin,
+    cmd_sdiamond,
+    cmd_sgeroy,
+    cmd_smoney,
     cmd_stats,
     cmd_stopgames,
     cmd_top,
@@ -67,6 +75,7 @@ from .admin import (
     cmd_unblock,
     cmd_unvip,
     cmd_vip,
+    cmd_you,
     cmd_zapravka1,
     cmd_zapravka7,
 )
@@ -112,7 +121,17 @@ def register_handlers(app):
     app.add_handler(CommandHandler("pul",cmd_pul))
     app.add_handler(CommandHandler("olmos",cmd_olmos))
     app.add_handler(CommandHandler("coin",cmd_coin))
+    app.add_handler(CommandHandler("sdiamond",cmd_sdiamond))
+    app.add_handler(CommandHandler("smoney",cmd_smoney))
+    app.add_handler(CommandHandler("scoin",cmd_scoin))
+    app.add_handler(CommandHandler("sgeroy",cmd_sgeroy))
+    app.add_handler(CommandHandler("rgeroy",cmd_rgeroy))
     app.add_handler(CommandHandler("bust",cmd_bust))
+    app.add_handler(CommandHandler("bust1",cmd_bust1))
+    app.add_handler(CommandHandler("bust2",cmd_bust2))
+    app.add_handler(CommandHandler("fullbust",cmd_fullbust))
+    app.add_handler(CommandHandler("you",cmd_you))
+    app.add_handler(CommandHandler("gunblock",cmd_gunblock))
     app.add_handler(CommandHandler("blocks",cmd_blocks))
     app.add_handler(CommandHandler("id",cmd_id))
     app.add_handler(CommandHandler("gsearch",cmd_gsearch))

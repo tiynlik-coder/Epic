@@ -15,7 +15,7 @@ from utils.game_roles import apply_admin_roles, role_balance
 from utils.night_actions import offer_night_action, resolve_night_effects, send_zombie_rosters, zombie_convert_job
 from utils.players import getp, kill_player, living, mention, role_label, role_lists, side, team_icon, visible_mention, visible_name
 from utils.state import cancel_jobs, find_game, games, persist_games, refund_bounties, schedule_phase, valid_job
-from utils.telegram_utils import is_epic_channel_member, night_image_path, send_private
+from utils.telegram_utils import is_epic_channel_member, night_image_path, send_private, unpin_lobby
 from utils.texts import ROLE_INTRO
 from utils.victory import game_over, winners
 
@@ -49,7 +49,8 @@ async def start_game(app,g):
         p["rifle"]=d.get("rifle",0)>0
         p["hero_protection"]=d.get("hero_protection",0)>0
         add_stats(p["id"],game=True)
-        intro=ROLE_INTRO.get(r,f"{EMOJI.get(r,'🎭')} Siz — {r}siz!\nSiz {side(r)} tarafdasiz.")
+        body=ROLE_INTRO.get(r,f"Siz {side(r)} tarafdasiz.")
+        intro=f"{EMOJI.get(r,'🎭')} Siz — {r}siz!\n\n{body}"
         if g.get("mode") == "vs":
             intro += f"\n\n⚔️ Sizning jamoangiz: {team_icon(p)}"
         await send_private(app.bot,p["id"],intro)
@@ -60,6 +61,7 @@ async def start_game(app,g):
         await send_private(app.bot,first["id"],"🧟 Siz — Zombisiz!\nSiz Zombie tarafidasiz. Har tun bir o‘yinchini Zombi qilishingiz mumkin.")
         await send_zombie_rosters(app.bot,g)
     await app.bot.send_message(g["chat_id"],"⚔️ <b>VS O‘YIN BOSHLANDI!</b>" if g.get("mode")=="vs" else "🎭 <b>O‘YIN BOSHLANDI!</b>",parse_mode=ParseMode.HTML)
+    await unpin_lobby(app.bot,g)
     g["phase"]="night"; g["phase_id"]+=1; g["night"]=1; await start_night(app,g)
 
 
@@ -75,14 +77,17 @@ async def start_night(app,g):
             p["max_hp"]=p.get("base_hp", 150 if p.get("role")=="Tabib" else 100)
             p["hp"]=min(p.get("hp",p["max_hp"]),p["max_hp"])
     g["next_ability_swaps"]={}
+    try: bot_username=(await app.bot.get_me()).username or ""
+    except TelegramError: bot_username=""
+    night_kb=InlineKeyboardMarkup([[InlineKeyboardButton("🤖 Botga o‘tish",url=f"https://t.me/{bot_username}")]]) if bot_username else None
     path=await night_image_path()
     if path:
         try:
-            with open(path,'rb') as f: await app.bot.send_photo(g["chat_id"],InputFile(f),caption=f"🌙 <b>Tun {g['night']}</b> boshlandi.\nBarcha tungi harakatlar tongda birgalikda hal qilinadi.",parse_mode=ParseMode.HTML)
-        except TelegramError: await app.bot.send_message(g["chat_id"],f"🌙 <b>Tun {g['night']}</b> boshlandi.",parse_mode=ParseMode.HTML)
-    else: await app.bot.send_message(g["chat_id"],f"🌙 <b>Tun {g['night']}</b> boshlandi.",parse_mode=ParseMode.HTML)
+            with open(path,'rb') as f: await app.bot.send_photo(g["chat_id"],InputFile(f),caption=f"🌙 <b>Tun {g['night']}</b> boshlandi.\nBarcha tungi harakatlar tongda birgalikda hal qilinadi.",parse_mode=ParseMode.HTML,reply_markup=night_kb)
+        except TelegramError: await app.bot.send_message(g["chat_id"],f"🌙 <b>Tun {g['night']}</b> boshlandi.",parse_mode=ParseMode.HTML,reply_markup=night_kb)
+    else: await app.bot.send_message(g["chat_id"],f"🌙 <b>Tun {g['night']}</b> boshlandi.",parse_mode=ParseMode.HTML,reply_markup=night_kb)
     names="\n".join(f"• {html.escape(str(visible_name(g,p)))}" for p in living(g))
-    await app.bot.send_message(g["chat_id"],f"👥 <b>Hozir tirik o‘yinchilar:</b>\n{names}",parse_mode=ParseMode.HTML)
+    await app.bot.send_message(g["chat_id"],f"👥 <b>Tirik o‘yinchilar:</b>\n{names}",parse_mode=ParseMode.HTML)
     for p in living(g): await offer_night_action(app,g,p)
     if g.get("mode")=="zombie":
         app.job_queue.run_once(zombie_convert_job,max(0,NIGHT_TIME-5),data={"gid":g["id"]},name=f"zombie-convert-{g['id']}")
@@ -120,7 +125,12 @@ async def start_day(app,g):
         lines=["☠️ <b>Tunda o‘ldirilganlar:</b>"]
         for item in nd:
             vp=getp(g,item["victim"])
-            if vp: lines.append(f"• {visible_mention(g,vp,True)} — {role_label(vp["role"])}")
+            if not vp: continue
+            kr=item.get("role")
+            if kr:
+                lines.append(f"• {visible_mention(g,vp,True)} — {role_label(vp['role'])} — {role_label(kr)} o‘ldirdi")
+            else:
+                lines.append(f"• {visible_mention(g,vp,True)} — {role_label(vp['role'])}")
         await app.bot.send_message(g["chat_id"],"\n".join(lines),parse_mode=ParseMode.HTML)
     # Keep the active game in memory through discussion/voting/night.
     # It is removed only by end_game(), so callbacks and timers remain valid.
@@ -170,9 +180,11 @@ async def start_voting(ctx):
     g=find_game(d.get("gid"))
     if not g or not valid_job(g,d) or g.get("phase")!="discussion": return
     g["phase"]="voting"; g["phase_id"]+=1; g["votes"]={}; cancel_jobs(g); persist_games()
-    rows=[[InlineKeyboardButton(visible_name(g,p)[:32],callback_data=f"vote:{g['id']}:{p['id']}")] for p in living(g)]
-    rows.append([InlineKeyboardButton("⏭ Ovoz bermaslik",callback_data=f"skip:{g['id']}")])
-    await ctx.bot.send_message(g["chat_id"],"🗳 <b>Ovoz berish boshlandi.</b>",reply_markup=InlineKeyboardMarkup(rows),parse_mode=ParseMode.HTML)
+    await ctx.bot.send_message(g["chat_id"],"🗳 <b>Ovoz berish boshlandi.</b>\nHar bir tirik o‘yinchi shaxsiy chatda ovoz beradi.",parse_mode=ParseMode.HTML)
+    for p in living(g):
+        rows=[[InlineKeyboardButton(visible_name(g,t)[:32],callback_data=f"vote:{g['id']}:{t['id']}")] for t in living(g) if t["id"]!=p["id"]]
+        rows.append([InlineKeyboardButton("⏭ Ovoz bermaslik",callback_data=f"skip:{g['id']}")])
+        await send_private(ctx.bot,p["id"],"🗳 <b>Kimni osamiz?</b>\nTanlang:",InlineKeyboardMarkup(rows))
     schedule_phase(ctx.application,g,VOTING_TIME,resolve_vote,"vote")
 
 
@@ -213,6 +225,7 @@ async def after_vote(app,g):
 async def end_game(app,g,forced=None):
     if g.get("ended"): return
     cancel_jobs(g); g["ended"]=True; g["phase"]="ended"; g["phase_id"]+=1
+    await unpin_lobby(app.bot,g)
     win=forced if forced is not None else winners(g)
     win_ids={p["id"] for p in win}
     refund_bounties(g)
@@ -226,7 +239,7 @@ async def end_game(app,g,forced=None):
     mm,ss=divmod(elapsed,60)
     lines=["O’yin tugadi!","","G’oliblar:"]
     if win:
-        for i,p in enumerate(win,1): lines.append(f"{i}. {mention(p)} — {role_label(p['role'])} (+{rewards.get(p['id'],0)}💷)")
+        for i,p in enumerate(win,1): lines.append(f"{i}. {mention(p)} — {role_label(p['role'])}")
     else: lines.append("—")
     lines += ["","Qolgan o’yinchilar:"]
     remaining=[p for p in g["players"].values() if p["id"] not in win_ids]

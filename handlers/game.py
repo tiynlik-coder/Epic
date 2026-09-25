@@ -13,9 +13,9 @@ from models.database import db
 from models.heroes import hero_row
 from utils.lobby import create_lobby
 from utils.night_actions import veyron_notice_job
-from utils.players import ability_role, getp, living, mention, targets, visible_name
+from utils.players import ability_role, getp, living, mention, targets, visible_mention, visible_name
 from utils.state import cancel_game, find_game, games, persist_games
-from utils.telegram_utils import cb_answer, safe_edit
+from utils.telegram_utils import cb_answer, safe_edit, unpin_lobby
 from utils.texts import mode_detail
 
 
@@ -303,8 +303,18 @@ async def cb_vote(update,ctx):
     if typ=="vote":
         t=getp(g,target)
         if not t or not t["alive"]:return await cb_answer(q,"Nishon mavjud emas.",True)
-        g["votes"][q.from_user.id]=target; persist_games(); await cb_answer(q,"Ovoz qabul qilindi.")
-    else:g["votes"][q.from_user.id]=None; await cb_answer(q,"Ovoz bermaslik tanlandi.")
+        if t["id"]==voter["id"]:return await cb_answer(q,"O‘zingizga ovoz bera olmaysiz.",True)
+        g["votes"][q.from_user.id]=target; persist_games()
+        await safe_edit(q,f"🗳 Sizning ovozingiz: {visible_name(g,t)}",None)
+        await cb_answer(q,"Ovoz qabul qilindi.")
+        try: await ctx.bot.send_message(g["chat_id"],f"🗳 {visible_mention(g,voter)} ➡️ {visible_mention(g,t)}ga ovoz berdi.",parse_mode=ParseMode.HTML)
+        except TelegramError: pass
+    else:
+        g["votes"][q.from_user.id]=None; persist_games()
+        await safe_edit(q,"⏭ Ovoz bermaslik tanlandi.",None)
+        await cb_answer(q,"Ovoz bermaslik tanlandi.")
+        try: await ctx.bot.send_message(g["chat_id"],f"🗳 {visible_mention(g,voter)} ovoz bermaslikni tanladi.",parse_mode=ParseMode.HTML)
+        except TelegramError: pass
 
 
 async def cb_af(update,ctx):
@@ -342,4 +352,4 @@ async def cmd_stop(update,ctx):
             return await update.message.reply_text("❌ Bu buyruq faqat guruh adminlari uchun.")
     g=games.get(update.effective_chat.id)
     if not g or g.get("phase") in {"ended","cancelled"}: return await update.message.reply_text("ℹ️ Faol o‘yin yo‘q.")
-    cancel_game(g); await update.message.reply_text("🛑 O‘yin admin tomonidan to‘xtatildi.")
+    cancel_game(g); await unpin_lobby(ctx.bot,g); await update.message.reply_text("🛑 O‘yin admin tomonidan to‘xtatildi.")
