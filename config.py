@@ -160,6 +160,7 @@ CHEST_COOLDOWN_DAYS = 30         # VIPs are not limited
 VIP_PRICE = 30                   # 💎
 VIP_DAYS = 30
 PROFILE_SWAP_PRICE = 5           # 💎, paid by whoever proposes
+MAX_GAME_MINUTES = 120           # longer games (usually a killer-less stalemate) are stopped
 
 # ---------------- ACTIVE ROLE MARKET ----------------
 ADMIN_ACTIVE_ROLE_PRICES = {

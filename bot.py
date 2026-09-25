@@ -14,7 +14,7 @@ from config import ADMIN_IDS, log
 from handlers import register_handlers
 from models.database import init_db
 from utils.game_loop import resume_games
-from utils.maintenance import periodic_tasks
+from utils.maintenance import periodic_tasks, stop_endless_games
 from utils.state import load_games_state
 
 
@@ -72,6 +72,7 @@ def build_app(t):
     app=ApplicationBuilder().token(t).post_init(setup_bot_commands).build()
     register_handlers(app)
     app.job_queue.run_repeating(periodic_tasks, interval=6*3600, first=120, name="periodic")
+    app.job_queue.run_repeating(stop_endless_games, interval=600, first=600, name="endless-games")
     return app
 
 
