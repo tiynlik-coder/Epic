@@ -105,3 +105,19 @@ class EconomyTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StatsTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls): init_db()
+
+    def test_results_feed_the_rating(self):
+        from models.stats import top_players, user_rank
+        from utils.game_logic import record_results
+        g = {"id": "stats-1", "chat_id": -70, "players": {6001: {"id": 6001, "role": "Don"}, 6002: {"id": 6002, "role": "Shifokor"}, 6003: {"id": 6003, "role": "Mafia"}}}
+        for u in (6001, 6002, 6003): fresh(u)
+        record_results(g, {6001, 6003})        # 3 players, 2 winners: winners +4, loser -2
+        rows = top_players(-70)
+        self.assertEqual([(r[0], r[2]) for r in rows][-1], (6002, -2))
+        self.assertEqual(user_rank(6002, "1"), (3, -2, 1))
+        self.assertEqual(economy.games_in_chat(6001, -70), 1)

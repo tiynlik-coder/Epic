@@ -14,6 +14,8 @@ from keyboards.user_keyboards import active_role_market_markup, market_keyboard,
 from models.chat_settings import get_settings
 from models.database import db
 from models.users import buy, ensure_user, grant_first_start, spend
+from handlers.stats import rating_text
+from models.stats import top_players
 from utils.game_logic import start_game
 from utils.lobby import join_lobby_deeplink, join_vs_deeplink
 from utils.permissions import has_perm
@@ -88,10 +90,8 @@ async def cb_menu(update,ctx):
         await safe_edit(q,roles_menu_text(),roles_menu_markup())
     elif key=="hero": await show_hero(q,q.from_user.id)
     elif key=="rating":
-        con=db(); rows=con.execute("SELECT first_name,wins,games,money FROM users ORDER BY wins DESC,games DESC LIMIT 10").fetchall(); con.close()
-        lines=["🏆 <b>Epic Mafia reytingi</b>",""]
-        for i,r in enumerate(rows,1): lines.append(f"{i}. {html.escape(str(r['first_name'] or 'Nomsiz'))} — 🏆 {r['wins']} / 🎮 {r['games']}")
-        await safe_edit(q,"\n".join(lines),InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Orqaga",callback_data="menu:profile")]]))
+        top="\n".join(f"{i}. {html.escape(str(r[1] or r[0]))} — {int(r[2] or 0)} ball" for i,r in enumerate(top_players(None,"30"),1)) or "—"
+        await safe_edit(q,rating_text(q.from_user.id)+"\n\n🏆 <b>Oyning eng yaxshilari:</b>\n"+top,InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Orqaga",callback_data="menu:profile")]]))
     elif key=="market":
         ensure_user(q.from_user)
         await send_market(q.message)

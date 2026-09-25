@@ -61,6 +61,7 @@ from .admin import (
     cmd_checkuser,
     cmd_coin,
     cmd_fullbust,
+    cmd_gbust,
     cmd_gblock,
     cmd_groups,
     cmd_gsearch,
@@ -76,9 +77,7 @@ from .admin import (
     cmd_sdiamond,
     cmd_sgeroy,
     cmd_smoney,
-    cmd_stats,
     cmd_stopgames,
-    cmd_top,
     cmd_unaktiv,
     cmd_unblock,
     cmd_unvip,
@@ -118,6 +117,14 @@ from .economy import (
     successful_payment,
     swap_id_text,
 )
+from .stats import (
+    cmd_boylar,
+    cmd_eboylar,
+    cmd_gtop,
+    cmd_market_stats,
+    cmd_tchat,
+)
+from .stats import cmd_top as cmd_rating_top
 from .settings import (
     cb_settings,
     cmd_settings,
@@ -161,6 +168,12 @@ def register_handlers(app):
     app.add_handler(CommandHandler(list(GIVEAWAY_ITEMS),cmd_giveaway))
     app.add_handler(CommandHandler("change",cmd_change))
     app.add_handler(CommandHandler("tgeroy",cmd_tgeroy))
+    app.add_handler(CommandHandler(["top","top1","top7","top30"],cmd_rating_top))
+    app.add_handler(CommandHandler(["gtop","gtop1","gtop7","gtop30"],cmd_gtop))
+    app.add_handler(CommandHandler(["boylar","gboylar"],cmd_boylar))
+    app.add_handler(CommandHandler("eboylar",cmd_eboylar))
+    app.add_handler(CommandHandler(["tchat","tchat1","tchat7","tchat30","tchats"],cmd_tchat))
+    app.add_handler(CommandHandler("stats",cmd_market_stats))
     app.add_handler(PreCheckoutQueryHandler(precheckout))
     app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT,successful_payment))
     app.add_handler(CommandHandler("tep",cmd_tep))
@@ -192,6 +205,7 @@ def register_handlers(app):
     app.add_handler(CommandHandler("bust1",cmd_bust1))
     app.add_handler(CommandHandler("bust2",cmd_bust2))
     app.add_handler(CommandHandler("fullbust",cmd_fullbust))
+    app.add_handler(CommandHandler("gbust",cmd_gbust))
     app.add_handler(CommandHandler("you",cmd_you))
     app.add_handler(CommandHandler("gunblock",cmd_gunblock))
     app.add_handler(CommandHandler("blocks",cmd_blocks))
@@ -201,16 +215,6 @@ def register_handlers(app):
     app.add_handler(CommandHandler("active",cmd_active_games))
     app.add_handler(CommandHandler("checkgaming",cmd_checkgaming))
     app.add_handler(CommandHandler("stopgames",cmd_stopgames))
-    app.add_handler(CommandHandler("stats",cmd_stats))
-    app.add_handler(CommandHandler("top",cmd_top))
-    app.add_handler(CommandHandler("gtop",cmd_top))
-    app.add_handler(CommandHandler("gboylar",cmd_top))
-    app.add_handler(CommandHandler("eboylar",cmd_top))
-    app.add_handler(CommandHandler("tchat",cmd_stats))
-    app.add_handler(CommandHandler("tchats",cmd_stats))
-    app.add_handler(CommandHandler("tchat1",cmd_stats))
-    app.add_handler(CommandHandler("tchat7",cmd_stats))
-    app.add_handler(CommandHandler("tchat30",cmd_stats))
     app.add_handler(CommandHandler("geroys",cmd_heroes))
     app.add_handler(CommandHandler("rgm",cmd_rgm))
     app.add_handler(CommandHandler("vip",cmd_vip))

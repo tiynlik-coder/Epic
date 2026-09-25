@@ -21,53 +21,56 @@ Testlar
 Tuzilish (raqamlar — qatorlar soni)
 
 Epic/
-├── bot.py                   88  ← kirish nuqtasi: ilova, buyruqlar menyusi, polling
-├── config.py               110  ← .env, sozlamalar, rollar va fraksiyalar, narxlar
-├── main.py                   5  ← eski kirish nuqtasi (bot.py ni chaqiradi)
+├── bot.py                   88  ← kirish nuqtasi: ilova, buyruqlar menyusi, davriy vazifalar, polling
+├── config.py               202  ← .env, rollar va taraflar, do'kon narxlari, paketlar
 ├── .env.example                 ← barcha sozlamalar namunasi
 │
 ├── handlers/                    ← Telegram buyruq va tugmalarini qabul qiladi
-│   ├── __init__.py         164  ← handlerlarni ulash tartibi (guard'lar birinchi)
-│   ├── errors.py             6  ← global xato ushlagich
-│   ├── other_handlers.py   152  ← /start, profil, do'kon, menyu
-│   ├── game.py             345  ← o'yin buyruqlari, tungi harakat va ovoz tugmalari
-│   ├── admin.py            301  ← admin buyruqlari va panel
-│   └── geroy_handlers.py   144  ← geroy tizimi
+│   ├── __init__.py         263  ← handlerlarni ulash tartibi (guard'lar birinchi)
+│   ├── game.py             493  ← o'yin buyruqlari, tungi harakat, ovoz, 👍/👎, /leave, /tep
+│   ├── game_chat.py         56  ← so'nggi so'z, tungi jamoa chati, guruhda yozish qoidasi
+│   ├── settings.py         134  ← /settings: guruh sozlamalari menyusi
+│   ├── economy.py          424  ← o'tkazmalar, giveaway, lotereya, sandiq, VIP, to'lovlar
+│   ├── stats.py             79  ← /top, /gtop, /boylar, reyting
+│   ├── pairs.py             49  ← /para, /mypara, /dpara
+│   ├── other_handlers.py   170  ← /start, profil, do'kon, menyu
+│   ├── admin.py            466  ← admin buyruqlari va panel
+│   ├── geroy_handlers.py   148  ← geroy tizimi
+│   └── errors.py             6
 │
-├── middlewares/
-│   └── block_guard.py       27  ← bloklangan user/guruhni hamma handlerdan oldin to'xtatadi
+├── middlewares/block_guard.py   ← bloklangan user/guruhni hamma handlerdan oldin to'xtatadi
 │
-├── models/                      ← baza
-│   ├── database.py         190  ← Postgres/SQLite ulanishi, jadvallar
-│   ├── users.py             74  ← balans, statistika, inventar
-│   ├── heroes.py            42  ← geroy yozuvlari va daraja hisobi
-│   └── admin_data.py        64  ← loglar, bloklar, majburiy/sotib olingan rollar
+├── models/                      ← baza (PostgreSQL yoki SQLite)
+│   ├── database.py         237  ← ulanish, jadvallar, migratsiyalar
+│   ├── users.py            123  ← balans (atomar spend/transfer), inventar
+│   ├── economy.py          315  ← guruh balansi, giveaway, lotereya, sandiq, VIP, to'lov, profil almashish
+│   ├── chat_settings.py     58  ← guruh sozlamalari (standart qiymatlar)
+│   ├── stats.py             60  ← reytinglar (game_results)
+│   ├── pairs.py, heroes.py, admin_data.py
 │
 ├── utils/                       ← ASOSIY MANTIQ
-│   ├── game_logic.py       239  ← fazalar sikli: start → tun → kun → ovoz → ... → tugash
-│   ├── night_actions.py    434  ← tungi harakatlarni taklif qilish va tongda hal qilish
-│   ├── lobby.py            170  ← lobbi yaratish, qo'shilish, yopish
-│   ├── game_loop.py         30  ← restartdan keyin taymerlarni tiklash
-│   ├── game_roles.py        99  ← rollarni taqsimlash
-│   ├── victory.py           59  ← g'alaba shartlari
-│   ├── players.py           98  ← o'yinchi yozuvi va ko'rinishi
-│   ├── state.py             82  ← xotiradagi o'yinlar, saqlash, taymerlar
-│   ├── profile.py           59  ← profil matni
-│   ├── telegram_utils.py    90  ← xavfsiz edit/send, kanal a'zoligi
-│   └── texts.py             79  ← rol tavsiflari va boshqa matnlar
+│   ├── game_logic.py       494  ← fazalar: start → tun → (Sehrgar) → kun → ovoz → (👍/👎) → ... → tugash
+│   ├── night_actions.py    621  ← tungi harakatlar: bosqichma-bosqich, bitta hit() orqali hujumlar
+│   ├── role_tables.py      136  ← classic/super/mega/real rol tartiblari (Baku)
+│   ├── game_roles.py       115  ← rol taqsimlash (Epic aralash yoki jadval), faol/majburiy rollar
+│   ├── victory.py           95  ← g'alaba: taraflar, yakkalar, real, para, vs, zombie
+│   ├── lobby.py            200  ← lobbi, qo'shilish, limitlar
+│   ├── permissions.py       35  ← guruh adminlari (kesh), ruxsat darajalari
+│   ├── state.py            106  ← xotiradagi o'yinlar, Redis/JSON'ga saqlash, taymerlar
+│   ├── game_loop.py         52  ← restartdan keyin taymerlarni tiklash
+│   ├── mirpay.py            49  ← MirPay karta to'lovi
+│   ├── players.py, profile.py, texts.py, telegram_utils.py, maintenance.py
 │
-├── keyboards/
-│   ├── main_keyboard.py     22  ← /start menyusi
-│   ├── user_keyboards.py    71  ← profil, do'kon, rollar, geroy
-│   ├── game_keyboard.py     29  ← lobbi, nishon tanlash, modelar
-│   └── admin_keyboard.py    14
-│
-└── tests/test_game.py           ← g'alaba, inventar, bounty, mukofot, handlerlar
+├── keyboards/                   ← tugmalar
+└── tests/                       ← 56 ta test: rollar, kun, iqtisodiyot, reyting (SQLite va Postgres)
 
-Bog'liqlik yo'nalishi (aylanma import yo'q):
-  config → models → utils (state/players → victory/night_actions → game_logic → lobby → game_loop)
-         → keyboards → handlers → bot.py
+Rejimlar: /game (oddiy), /ngame <nik>, /ugame, /zgame, /vsgame 2–9, /pgame (para).
+Rollar to'plami (/settings): Epic aralash yoki Baku classic / super / mega / real.
 
-Admin: /admin (shaxsiy chatda), /block, /unblock, /gblock, /ungblock, /aktiv, /unaktiv,
-/pul, /olmos, /coin, /bust, /checkuser, /inventory, /stats, /top, /broadcast, /stopgames, /vip ...
+O'yinchi buyruqlari: /start, /profile, /leave, /money N, /give N, /sgive ID N, /gsend N, /ginfo,
+/send N, /ghimoya /gqotil /govoz /gdori /gslip /ggeroy /gmiltiq N, /change N, /para, /mypara, /dpara,
+/tgeroy, /top[1|7|30], /gtop[1|7|30], /boylar, /bounty.
+Guruh adminlari: /settings, /stop, /tep N, /modes.
+Bot adminlari (ADMIN_IDS): /admin, /block, /unblock, /gblock, /ungblock, /aktiv, /unaktiv, /pul, /olmos, /coin,
+/bust, /fullbust, /gbust, /checkuser, /inventory, /stats, /tchat, /eboylar, /broadcast, /stopgames, /vip ...
 Bloklangan userlarga bot umuman javob bermaydi; bloklangan guruhda o'yin buyruqlari ishlamaydi.

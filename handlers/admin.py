@@ -400,14 +400,8 @@ async def cmd_stopgames(update,ctx):
     admin_log('stop_all_games',n); await update.message.reply_text(f'🛑 {n} ta o‘yin to‘xtatildi.')
 
 
-async def cmd_stats(update,ctx):
-    if not _admin_only(update): return
-    con=db(); row=con.execute("SELECT COUNT(*),COALESCE(SUM(games),0),COALESCE(SUM(wins),0),COALESCE(SUM(money),0),COALESCE(SUM(diamonds),0) FROM users").fetchone(); con.close(); await update.message.reply_text(f"📊 Userlar: {row[0]}\n🎮 O‘yinlar: {row[1]}\n🏆 G‘alabalar: {row[2]}\n💷 Pullar: {row[3]}\n💎 Olmos: {row[4]}")
 
 
-async def cmd_top(update,ctx):
-    if not _admin_only(update): return
-    con=db(); rows=con.execute("SELECT first_name,user_id,wins,games,money,diamonds FROM users ORDER BY wins DESC,games DESC LIMIT 100").fetchall(); con.close(); await update.message.reply_text("🏆 <b>TOP userlar</b>\n\n"+('\n'.join(f"{i}. {html.escape(str(r[0] or 'Nomsiz'))} — {r[2]}🏆 / {r[3]}🎮 — {r[4]}💷 / {r[5]}💎" for i,r in enumerate(rows,1)) if rows else '—'))
 
 
 async def cmd_heroes(update,ctx):
@@ -458,3 +452,15 @@ async def cmd_zapravka1(update,ctx):
 async def cmd_zapravka7(update,ctx):
     if not _admin_only(update): return
     con=db(); con.execute("INSERT INTO users(user_id) VALUES(?) ON CONFLICT DO NOTHING",(update.effective_user.id,)); con.execute("UPDATE users SET money=money+10000 WHERE user_id=?",(update.effective_user.id,)); con.commit(); con.close(); await update.message.reply_text("✅ Sizga 10 000 💷 berildi!")
+
+
+async def cmd_gbust(update,ctx):
+    """/gbust — reset this group's balance (or /gbust <chat_id> in private)."""
+    if not _admin_only(update) or not update.message: return
+    if update.effective_chat.type in {ChatType.GROUP,ChatType.SUPERGROUP}: cid=update.effective_chat.id
+    else:
+        nums=_nums(update.message.text or '')
+        if not nums: return await update.message.reply_text("❌ /gbust — guruhda yuboring yoki /gbust <chat_id> yozing.")
+        cid=nums[0]
+    con=db(); con.execute("UPDATE group_balance SET balance=0 WHERE chat_id=?",(cid,)); con.commit(); con.close(); admin_log('gbust',cid)
+    await _ok(update,ctx,"💎 Guruh hisobi 0 qilindi✅")
