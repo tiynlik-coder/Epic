@@ -75,6 +75,20 @@ async def refresh_lobby(bot, g):
     except TelegramError: pass
 
 
+async def repost_lobby(bot, g):
+    """Send the registration message again at the bottom of the chat and pin it; the old one is removed."""
+    me=await bot.get_me()
+    text=vs_lobby_text(g) if g.get("mode")=="vs" else standard_lobby_text(g)
+    msg=await bot.send_message(g["chat_id"],text,reply_markup=lobby_markup(g,me.username or ""),parse_mode=ParseMode.HTML)
+    old_id,g["lobby_message_id"]=g.get("lobby_message_id"),msg.message_id
+    persist_games()
+    if old_id:
+        try: await bot.delete_message(g["chat_id"],old_id)
+        except TelegramError: pass
+    try: await bot.pin_chat_message(g["chat_id"],msg.message_id,disable_notification=True)
+    except TelegramError: pass
+
+
 async def start_if_full(app, g):
     if g.get("phase")=="lobby" and len(g["players"])>=player_limit(g):
         await start_game(app,g)
@@ -86,8 +100,12 @@ async def create_lobby(update, ctx, mode=None, mode_value=None):
     settings=get_settings(chat.id)
     if not await has_perm(ctx.bot,chat.id,update.effective_user.id,settings["perm_game"]):
         return await update.effective_message.reply_text("❌ Bu guruhda o‘yinni faqat ruxsat berilganlar boshlay oladi.")
-    if chat.id in games and games[chat.id].get("phase") not in {"ended","cancelled"}:
-        return await update.effective_message.reply_text("⚠️ Bu guruhda allaqachon o‘yin/lobby mavjud.")
+    old=games.get(chat.id)
+    if old and old.get("phase")=="lobby":
+        # Registration scrolled up in a busy chat: bring the same list (with everyone registered) down again.
+        return await repost_lobby(ctx.bot,old)
+    if old and old.get("phase") not in {"ended","cancelled"}:
+        return await update.effective_message.reply_text("⚠️ Bu guruhda o‘yin davom etmoqda.")
     gid=game_id()
     g={"id":gid,"chat_id":chat.id,"phase":"lobby","phase_id":1,"created":time.time(),"players":{},"jobs":[],"start_time":None,"night":0,"night_log":[],"votes":{},"lobby_message_id":None,"ended":False,"night_message_ids":[],"mode":mode,"mode_value":mode_value,"bounties":[],"mode_state":{},"settings":settings}
     if mode == "vs":
