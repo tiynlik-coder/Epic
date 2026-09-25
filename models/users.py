@@ -7,7 +7,7 @@ UPDATE (`... WHERE money>=?`), so two concurrent requests can never overdraw an 
 from models.database import db
 
 BALANCE_FIELDS = ("money", "diamonds", "coins")
-INVENTORY_KEYS = ("protection","fake_document","hanging_protection","rifle","mask","supper_shield","active_role","hero_protection","medicine_protection")
+INVENTORY_KEYS = ("protection","fake_document","hanging_protection","rifle","mask","supper_shield","active_role","hero_protection","medicine_protection","killer_protection","slip_protection")
 
 
 def _balance_field(field):

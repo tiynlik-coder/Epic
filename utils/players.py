@@ -16,7 +16,23 @@ def new_player(u):
         "blocked":False,"action":None,"visits":[],"inactive":0,"resurrections":0,
         "prof_box":None,"prof_bonus":0,"manipulations":0,"kamikaze_used":False,
         "afsungar_decisions":{},"temp_ability":None,"temp_from":None,"base_hp":100,"temp_hp_bonus":0,"last_attackers":[],"team":None,
+        **{k:(v.copy() if isinstance(v,list) else v) for k,v in PLAYER_DEFAULTS.items()},
     }
+
+
+PLAYER_DEFAULTS = {
+    # Items bought in the market (set at game start), consumed when they fire.
+    "killer_protection":False,"slip_protection":False,"medicine":False,
+    # Role state brought over from Baku Mafia.
+    "won_flag":False,"gazab_picks":[],"robin_mistakes":0,"tulki_used":False,"pending_mode":None,
+    "kimyo_shield":None,"lab_shield":None,"action_cancelled":False,
+}
+
+
+# Per-night fields reset in start_night; also the defaults for games restored from older state.
+NIGHT_FIELDS = {"action":None,"hero_action":None,"visits":[],"blocked":False,"afsungar_decisions":{},"last_attackers":[],
+                "temp_hp_bonus":0,"advokat_result":False,"koldun_hanging":False,"kimyo_shield":None,"lab_shield":None,
+                "action_cancelled":False,"pending_mode":None}
 
 
 def mention(p):

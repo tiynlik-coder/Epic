@@ -8,12 +8,12 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from telegram.constants import ParseMode
 from telegram.error import TelegramError
 
-from config import DISCUSSION_TIME, EMOJI, NIGHT_TIME, ORDINARY_KILLERS, ROLES, VOTING_TIME, WIN_REWARD
+from config import DISCUSSION_TIME, EMOJI, NIGHT_TIME, UNIFORM_KILLERS, VOTING_TIME, WIN_REWARD
 from models.database import db
 from models.users import add_stats, consume_inventory, inv
-from utils.game_roles import apply_admin_roles, role_balance
+from utils.game_roles import apply_admin_roles, build_role_list
 from utils.night_actions import offer_night_action, resolve_night_effects, send_zombie_rosters, zombie_convert_job
-from utils.players import getp, kill_player, living, mention, role_label, role_lists, side, team_icon, visible_mention, visible_name
+from utils.players import NIGHT_FIELDS, getp, kill_player, living, mention, role_label, role_lists, side, team_icon, visible_mention, visible_name
 from utils.state import cancel_jobs, find_game, games, persist_games, refund_bounties, schedule_phase, valid_job
 from utils.telegram_utils import is_epic_channel_member, night_image_path, send_private, unpin_lobby
 from utils.texts import ROLE_INTRO
@@ -23,20 +23,17 @@ from utils.victory import game_over, winners
 async def start_game(app,g):
     if g["phase"]!="lobby": return
     cancel_jobs(g); g["phase"]="starting"; g["phase_id"]+=1; g["start_time"]=time.time()
+    n=len(g["players"])
     if g.get("mode") == "uniform":
-        killer_pool=sorted(ORDINARY_KILLERS | {"Snayper","Professor","Minior"})
-        chosen=random.choice(killer_pool)
-        role_list=[chosen]*len(g["players"])
+        chosen=random.choice(UNIFORM_KILLERS)
+        role_list=[chosen]*n
         g["mode_state"]={"uniform_role":chosen}
-    elif g.get("mode") == "vs":
-        role_list=role_balance(len(g["players"]))
-        g["mode_state"]["teams_count"]=int(g.get("mode_state",{}).get("teams_count",2))
-    elif g.get("mode") == "zombie":
-        role_list=role_balance(len(g["players"]))
-        g["mode_state"]={"zombie_ids":[],"zombie_pending":None}
     else:
-        role_list=role_balance(len(g["players"]))
-        if len(g["players"])==30: role_list=ROLES[:]; random.shuffle(role_list)
+        role_list=build_role_list(g,n)
+        if g.get("mode") == "vs":
+            g["mode_state"]["teams_count"]=int(g.get("mode_state",{}).get("teams_count",2))
+        elif g.get("mode") == "zombie":
+            g["mode_state"]={"zombie_ids":[],"zombie_pending":None}
     role_list=apply_admin_roles(g, role_list)
     for p,r in zip(g["players"].values(),role_list):
         p["role"]=r; p["alive"]=True; p["base_hp"]=150 if r=="Tabib" else 100; p["max_hp"]=p["base_hp"]; p["hp"]=p["base_hp"]; p["temp_hp_bonus"]=0
@@ -48,6 +45,9 @@ async def start_game(app,g):
         p["fake_document"]=consume_inventory(p,"fake_document")
         p["rifle"]=d.get("rifle",0)>0
         p["hero_protection"]=d.get("hero_protection",0)>0
+        p["killer_protection"]=d.get("killer_protection",0)>0
+        p["slip_protection"]=d.get("slip_protection",0)>0
+        p["medicine"]=d.get("medicine_protection",0)>0
         add_stats(p["id"],game=True)
         body=ROLE_INTRO.get(r,f"Siz {side(r)} tarafdasiz.")
         intro=f"{EMOJI.get(r,'🎭')} Siz — {r}siz!\n\n{body}"
@@ -55,10 +55,12 @@ async def start_game(app,g):
             intro += f"\n\n⚔️ Sizning jamoangiz: {team_icon(p)}"
         await send_private(app.bot,p["id"],intro)
     if g.get("mode") == "zombie":
-        first=random.choice(living(g))
-        first["role"]="Zombi"
-        g["mode_state"]["zombie_ids"]=[first["id"]]
-        await send_private(app.bot,first["id"],"🧟 Siz — Zombisiz!\nSiz Zombie tarafidasiz. Har tun bir o‘yinchini Zombi qilishingiz mumkin.")
+        # Zombie role tables already contain the first Zombi; otherwise pick one at random.
+        zombies=[p for p in living(g) if p["role"]=="Zombi"]
+        if not zombies:
+            first=random.choice(living(g)); first["role"]="Zombi"; zombies=[first]
+            await send_private(app.bot,first["id"],"🧟 Siz — Zombisiz!\nSiz Zombie tarafidasiz. Har tun bir o‘yinchini Zombi qilishingiz mumkin.")
+        g["mode_state"]["zombie_ids"]=[z["id"] for z in zombies]
         await send_zombie_rosters(app.bot,g)
     await app.bot.send_message(g["chat_id"],"⚔️ <b>VS O‘YIN BOSHLANDI!</b>" if g.get("mode")=="vs" else "🎭 <b>O‘YIN BOSHLANDI!</b>",parse_mode=ParseMode.HTML)
     await unpin_lobby(app.bot,g)
@@ -70,9 +72,8 @@ async def start_night(app,g):
     cancel_jobs(g); g["phase"]="night"; g["phase_id"]+=1
     pending=g.get("next_ability_swaps", {})
     for p in g["players"].values():
-        p["action"]=None; p["hero_action"]=None; p["visits"]=[]; p["blocked"]=False; p["afsungar_decisions"]={}; p["last_attackers"]=[]
+        for k,v in NIGHT_FIELDS.items(): p[k]=v.copy() if isinstance(v,(list,dict)) else v
         p["temp_ability"]=pending.get(str(p["id"]))
-        p["temp_hp_bonus"]=0; p["advokat_result"]=False; p["koldun_hanging"]=False
         if p.get("alive"):
             p["max_hp"]=p.get("base_hp", 150 if p.get("role")=="Tabib" else 100)
             p["hp"]=min(p.get("hp",p["max_hp"]),p["max_hp"])
@@ -113,12 +114,8 @@ async def resolve_night(ctx):
 async def start_day(app,g):
     if g["ended"]: return
     cancel_jobs(g)
-    # Serjant promotion happens before terminal-win evaluation.
-    if not any(p.get("alive") and p.get("role")=="Komissar Katani" for p in g["players"].values()):
-        for p in g["players"].values():
-            if p.get("alive") and p.get("role")=="Serjant":
-                p["role"]="Komissar Katani"; await send_private(app.bot,p["id"],"👮🏻‍♂️ Komissar Katani o‘ldi. Siz endi Komissar Katanisiz.")
-                await app.bot.send_message(g["chat_id"],"👮🏻‍♂️ Serjant Komissar Kataniga aylandi."); break
+    # Promotions happen before terminal-win evaluation.
+    await promote_successors(app.bot,g)
     if game_over(g): return await end_game(app,g)
     nd=g.get("night_deaths",[])
     if nd:
@@ -149,8 +146,22 @@ async def start_day(app,g):
     schedule_phase(app,g,DISCUSSION_TIME,start_voting,"discussion")
 
 
+# When a key role has no living holder, the first living successor takes it over.
+SUCCESSION = [("Komissar Katani",("Serjant","Admiral")),("Shifokor",("Hamshira",)),("Don",("Mafia",))]
+
+
+async def promote_successors(bot,g):
+    for role,heirs in SUCCESSION:
+        if any(p.get("alive") and p.get("role")==role for p in g["players"].values()): continue
+        heir=next((p for h in heirs for p in g["players"].values() if p.get("alive") and p.get("role")==h),None)
+        if not heir: continue
+        old=heir["role"]; heir["role"]=role
+        await send_private(bot,heir["id"],f"{role_label(role)} o‘ldi. Siz endi {role_label(role)}siz!")
+        await bot.send_message(g["chat_id"],f"{role_label(old)} {role_label(role)}ga aylandi.")
+
+
 async def schedule_afsungar_decision(app,g):
-    # Give Afsungar a short real callback window at the end of night.
+    # Give the Sehrgar a short real callback window at the end of night.
     schedule_phase(app,g,10,resolve_afsungar,"afsungar")
 
 
@@ -158,17 +169,17 @@ async def resolve_afsungar(ctx):
     d=ctx.job.data; g=find_game(d.get("gid"))
     if not g or not valid_job(g,d) or g.get("phase")!="afsungar": return
     for af in g["players"].values():
-        if af.get("role")!="Afsungar": continue
+        if af.get("role")!="Sehrgar": continue
         for attacker_id, decision in list(af.get("afsungar_decisions",{}).items()):
             attacker=getp(g,int(attacker_id))
             if not attacker: continue
             if decision=="kill" and attacker.get("alive"):
                 kill_player(attacker,"afsungar")
-                await ctx.bot.send_message(g["chat_id"],f"🧙‍♀️ Afsungar {mention(af)} {role_label(attacker['role'])}ni kechira olmadi va o‘ldirishga qaror qildi.")
-                await send_private(ctx.bot,attacker["id"],"🧙‍♀️ Afsungar sizni o‘ldirishga qaror qildi.")
+                await ctx.bot.send_message(g["chat_id"],f"🧙‍♀️ Sehrgar {mention(af)} {role_label(attacker['role'])}ni kechira olmadi va o‘ldirishga qaror qildi.",parse_mode=ParseMode.HTML)
+                await send_private(ctx.bot,attacker["id"],"🧙‍♀️ Sehrgar sizni o‘ldirishga qaror qildi.")
             elif decision=="forgive":
-                await ctx.bot.send_message(g["chat_id"],f"🕊️ Afsungar {mention(af)} {role_label(attacker['role'])}ni kechirishga qaror qildi.")
-                await send_private(ctx.bot,attacker["id"],"🕊️ 🧙‍♀️ Afsungar sizni kechirishga qaror qildi.")
+                await ctx.bot.send_message(g["chat_id"],f"🕊️ Sehrgar {mention(af)} {role_label(attacker['role'])}ni kechirishga qaror qildi.",parse_mode=ParseMode.HTML)
+                await send_private(ctx.bot,attacker["id"],"🕊️ 🧙‍♀️ Sehrgar sizni kechirishga qaror qildi.")
     for p in g["players"].values(): p["afsungar_decisions"]={}
     g["phase"]="day"; g["phase_id"]+=1
     persist_games()
@@ -215,7 +226,18 @@ async def resolve_vote(ctx):
     await after_vote(ctx.application,g)
 
 
+async def expire_joker_cards(bot,g):
+    """A Joker target who did not pick a card by nightfall dies."""
+    for tid in list((g.get("joker_cards") or {})):
+        g["joker_cards"].pop(tid,None)
+        t=getp(g,int(tid))
+        if t and t["alive"]:
+            kill_player(t,"joker")
+            await bot.send_message(g["chat_id"],f"🤡 {visible_mention(g,t,True)} Joker kartasini tanlamadi va o‘ldirildi! U {role_label(t['role'])} edi.",parse_mode=ParseMode.HTML)
+
+
 async def after_vote(app,g):
+    await expire_joker_cards(app.bot,g)
     if g.get("forced_winners"):
         return await end_game(app,g,g["forced_winners"])
     if game_over(g): return await end_game(app,g)

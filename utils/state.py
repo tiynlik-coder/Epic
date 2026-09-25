@@ -6,6 +6,7 @@ import time
 
 from config import REDIS_URL, STATE_FILE, log
 from models.database import db
+from utils.players import NIGHT_FIELDS, PLAYER_DEFAULTS
 
 
 games = {}
@@ -56,8 +57,8 @@ def load_games_state():
             g["chat_id"]=int(cid); g["players"]={int(uid):p for uid,p in g.get("players",{}).items()}
             g["jobs"]=[]; g.setdefault("next_ability_swaps",{}); g.setdefault("veyron_notice",[]); g.setdefault("bounties",[])
             for p in g["players"].values():
-                p.setdefault("base_hp",150 if p.get("role")=="Tabib" else 100); p.setdefault("temp_hp_bonus",0); p.setdefault("last_attackers",[])
-                p.setdefault("hero_action",None); p.setdefault("afsungar_decisions",{}); p.setdefault("advokat_result",False); p.setdefault("team",None)
+                p.setdefault("base_hp",150 if p.get("role")=="Tabib" else 100); p.setdefault("team",None)
+                for k,v in {**NIGHT_FIELDS,**PLAYER_DEFAULTS}.items(): p.setdefault(k, v.copy() if isinstance(v,(list,dict)) else v)
             games[int(cid)]=g
     except Exception:
         log.exception("state restore failed")

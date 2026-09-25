@@ -58,38 +58,53 @@ log = logging.getLogger("epic_mafia")
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # ---------------- ROLE POOL ----------------
-# Fixed 30 role types. No role type is generated dynamically.
+# Epic roles plus the roles brought over from Baku Mafia. Role names are the ids used everywhere.
 ROLES = [
-    "Tinch axoli", "Shifokor", "Daydi", "Komissar Katani", "Kezuvchi",
-    "Serjant", "Koldun", "Sotqin", "Folbin", "Zodagon",
-    "Don", "Mafia", "Advokat", "Ayg‘oqchi", "Labarant", "Manipulyator",
-    "Ruhoniy", "Undiruvchi",
-    "Qotil", "Minior", "Snayper", "Suidsid", "La’natchi", "Professor",
-    "Afsungar", "Kamikaze", "Veyron", "Qorbobo", "Qorbola", "Tabib",
+    # Town
+    "Tinch axoli", "Shifokor", "Hamshira", "Daydi", "Komissar Katani", "Serjant", "Admiral", "Kezuvchi",
+    "Koldun", "Sotqin", "Folbin", "Zodagon", "Kamikaze", "Omadli", "Janob", "Robin Gud", "Fotoparatchi",
+    # Mafia
+    "Don", "Mafia", "Advokat", "Ayg‘oqchi", "Labarant", "Manipulyator", "Ruhoniy", "Undiruvchi",
+    "Yollanma qotil", "Jurnalist",
+    # Solo
+    "Qotil", "Minior", "Snayper", "Suidsid", "La’natchi", "Professor", "Sehrgar", "Afsungar", "Veyron",
+    "Qorbobo", "Qorbola", "Tabib", "Aferist", "Bo‘ri", "G‘azabkor", "Joker", "Kimyogar", "Rais",
+    "Konchi", "Qaroqchi", "Tulki",
 ]
-TOWN = {"Tinch axoli", "Shifokor", "Daydi", "Komissar Katani", "Kezuvchi", "Serjant", "Koldun", "Sotqin", "Folbin", "Zodagon", "Kamikaze"}
-MAFIA = {"Don", "Mafia", "Advokat", "Ayg‘oqchi", "Labarant", "Manipulyator", "Ruhoniy", "Undiruvchi"}
+TOWN = {"Tinch axoli", "Shifokor", "Hamshira", "Daydi", "Komissar Katani", "Serjant", "Admiral", "Kezuvchi",
+        "Koldun", "Sotqin", "Folbin", "Zodagon", "Kamikaze", "Omadli", "Janob", "Robin Gud", "Fotoparatchi"}
+MAFIA = {"Don", "Mafia", "Advokat", "Ayg‘oqchi", "Labarant", "Manipulyator", "Ruhoniy", "Undiruvchi",
+         "Yollanma qotil", "Jurnalist"}
 SOLO = set(ROLES) - TOWN - MAFIA
-# Solo killers win only when they outlast both factions; survival solos win just by staying alive.
-HOSTILE_SOLO = {"Qotil", "Minior", "Snayper", "Professor", "Qorbola"}
-SURVIVAL_SOLO = {"Afsungar", "Veyron", "Tabib", "Qorbobo", "La’natchi"}
+# Solo killers win only when they outlast both factions; survival solos win just by staying alive;
+# conditional solos win (dead or alive) once their goal is met during the game (player["won_flag"]).
+HOSTILE_SOLO = {"Qotil", "Snayper", "Professor", "Qorbola"}
+SURVIVAL_SOLO = {"Sehrgar", "Veyron", "Tabib", "Qorbobo", "La’natchi", "Aferist", "Bo‘ri", "Kimyogar",
+                 "Rais", "Konchi", "Qaroqchi", "Tulki"}
+CONDITIONAL_SOLO = {"Minior", "Joker", "G‘azabkor", "Afsungar"}
 WIN_REWARD = 100
 
 EMOJI = {
-    "Tinch axoli":"👤", "Shifokor":"🧑🏻‍⚕️", "Daydi":"👁", "Komissar Katani":"🕵🏻", "Kezuvchi":"💃🏻",
-    "Serjant":"👮🏻‍♂️", "Koldun":"⚡", "Sotqin":"🦎", "Folbin":"🧿", "Zodagon":"👑", "La’natchi":"🕸️",
+    "Tinch axoli":"👤", "Shifokor":"🧑🏻‍⚕️", "Hamshira":"👩🏻‍⚕️", "Daydi":"👁", "Komissar Katani":"🕵🏻",
+    "Serjant":"👮🏻‍♂️", "Admiral":"🧑🏻‍✈️", "Kezuvchi":"💃🏻", "Koldun":"⚡", "Sotqin":"🦎", "Folbin":"🧿",
+    "Zodagon":"👑", "Kamikaze":"💥", "Omadli":"🤞🏼", "Janob":"🎖", "Robin Gud":"🏹", "Fotoparatchi":"📸",
     "Don":"🤵🏻", "Mafia":"🧑🏻‍💼", "Advokat":"⚖️", "Ayg‘oqchi":"🦇", "Labarant":"🧪", "Manipulyator":"🪄",
-    "Ruhoniy":"✝️", "Undiruvchi":"💰", "Qotil":"🔪", "Minior":"👣", "Snayper":"👨🏻‍🎤",
-    "Suidsid":"🪢", "Professor":"🎩", "Afsungar":"🧙‍♀️", "Kamikaze":"💥",
-    "Veyron":"🧲", "Qorbobo":"🎅", "Qorbola":"🌨️", "Tabib":"🩺", "Zombi":"🧟",
+    "Ruhoniy":"✝️", "Undiruvchi":"💰", "Yollanma qotil":"🥷", "Jurnalist":"👩🏼‍💻",
+    "Qotil":"🔪", "Minior":"☠️", "Snayper":"👨🏻‍🎤", "Suidsid":"🪢", "La’natchi":"🕸️", "Professor":"🎩",
+    "Sehrgar":"🧙‍♀️", "Afsungar":"💣", "Veyron":"🧲", "Qorbobo":"🎅", "Qorbola":"🌨️", "Tabib":"🩺",
+    "Aferist":"🤹🏻", "Bo‘ri":"🐺", "G‘azabkor":"🧌", "Joker":"🤡", "Kimyogar":"👨‍🔬", "Rais":"🤑",
+    "Konchi":"👷🏻‍♂️", "Qaroqchi":"⚔️", "Tulki":"🦊", "Zombi":"🧟",
 }
 
-NIGHT_ACTIVE = TOWN | MAFIA | SOLO - {"Tinch axoli", "Serjant", "Suidsid", "Kamikaze"}
-# Explicitly active with no action: Professor etc are in set; Afsungar reacts only.
-
-HARMFUL_ACTION_ROLES = {"Don", "Mafia", "Labarant", "Qotil", "Minior", "Snayper", "Professor", "Komissar Katani", "Koldun", "Qorbola"}
-ORDINARY_KILLERS = {"Don", "Mafia", "Labarant", "Qotil", "Qorbola"}
-SPECIAL_KILLERS = {"Snayper", "Professor", "Minior"}
+# Sotqin exposes these; Komissar sees these as Town.
+HARMFUL_ACTION_ROLES = {"Don", "Mafia", "Labarant", "Qotil", "Minior", "Snayper", "Professor", "Komissar Katani",
+                        "Koldun", "Qorbola", "Yollanma qotil", "Kimyogar", "Qaroqchi", "G‘azabkor"}
+LOOKS_TOWN_TO_KOMISSAR = {"Yollanma qotil", "Joker"}
+# A plain 100-damage attack. Special attackers are resolved by name in night_actions.
+ORDINARY_KILLERS = {"Don", "Mafia", "Qotil", "Qorbola", "Robin Gud"}
+# Nobody can kill these at night (they can still be hanged).
+NIGHT_IMMUNE = {"Admiral", "Yollanma qotil"}
+UNIFORM_KILLERS = ["Don", "Mafia", "Qotil", "Qorbola", "Snayper", "Professor"]
 
 VS_TEAM_COLORS = {
     "red":"🔴", "blue":"🔵", "green":"🟢", "yellow":"🟡",
@@ -120,7 +135,7 @@ ADMIN_ACTIVE_ROLE_PRICES = {
     "Shifokor": (600, "money"),
     "Kezuvchi": (500, "money"),
     "Advokat": (500, "money"),
-    "Afsungar": (500, "money"),
+    "Sehrgar": (500, "money"),
     "Daydi": (400, "money"),
     "Suidsid": (300, "money"),
     "Ayg‘oqchi": (300, "money"),

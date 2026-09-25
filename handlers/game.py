@@ -8,12 +8,12 @@ from telegram.error import TelegramError
 from telegram.ext import ContextTypes
 
 from config import MAX_PLAYERS, is_bot_admin
-from keyboards.game_keyboard import modes_keyboard
+from keyboards.game_keyboard import modes_keyboard, name_buttons
 from models.users import spend
 from models.heroes import hero_row
 from utils.lobby import create_lobby
-from utils.night_actions import veyron_notice_job
-from utils.players import ability_role, getp, living, mention, targets, visible_mention, visible_name
+from utils.night_actions import ACTION_MODES, NIGHT_PROMPTS, konchi_kons, veyron_notice_job
+from utils.players import ability_role, getp, kill_player, living, mention, role_label, targets, visible_mention, visible_name
 from utils.state import cancel_game, find_game, games, persist_games
 from utils.telegram_utils import cb_answer, safe_edit, unpin_lobby
 from utils.texts import mode_detail
@@ -177,12 +177,17 @@ async def cb_action(update,ctx):
     if not p or not t or not p["alive"] or not t["alive"]: return await cb_answer(q,"O‘yinchi endi mavjud emas.",True)
     if p["action"] is not None: return await cb_answer(q,"Tanlovingiz allaqachon tasdiqlangan.",True)
     r=ability_role(p)
+    if r not in NIGHT_PROMPTS or (t["id"]==p["id"] and r!="G‘azabkor"): return await cb_answer(q,"Bu tanlov siz uchun emas.",True)
     if r=="Manipulyator":
         rows=[[InlineKeyboardButton(visible_name(g,x)[:32],callback_data=f"manip2:{gid}:{actor}:{x['id']}")] for x in living(g) if x["id"] not in {p["id"],t["id"]}]
         p["action"]={"type":"manipulator","controlled":t["id"],"selected_at":time.time()}
         await safe_edit(q,"🪄 Endi harakatni kimga yo‘naltiramiz?",InlineKeyboardMarkup(rows))
         persist_games(); return await cb_answer(q,"Birinchi tanlov saqlandi.")
-    p["action"]={"type":"target","target":t["id"],"selected_at":time.time()}
+    if r=="G‘azabkor" and t["id"]!=p["id"] and t["id"] in p.get("gazab_picks",[]):
+        return await cb_answer(q,"Bu o‘yinchini allaqachon tanlagansiz.",True)
+    if r in ACTION_MODES and not p.get("pending_mode"):
+        return await cb_answer(q,"Avval harakat turini tanlang.",True)
+    p["action"]={"type":"target","target":t["id"],"selected_at":time.time(),"mode":p.pop("pending_mode",None)}
     texts={"Shifokor":"🩺 Sizning tanlovingiz:","Daydi":"🌙 Sizning tanlovingiz:","Kezuvchi":"🚶 Sizning tanlovingiz:","Koldun":"⚡ Sizning tanlovingiz:","Don":"🎩 Sizning tanlovingiz:","Mafia":"🔪 Sizning tanlovingiz:","Advokat":"⚖️ Sizning tanlovingiz:","Ayg‘oqchi":"🕵️ Sizning tanlovingiz:","Labarant":"🧪 Sizning tanlovingiz:","Manipulyator":"🪄 Sizning tanlovingiz:","Ruhoniy":"✝️ Sizning tanlovingiz:","Undiruvchi":"💰 Sizning tanlovingiz:","Sotqin":"🦎 Sizning tanlovingiz:","Folbin":"🧿 Sizning tanlovingiz:","Zodagon":"👑 Sizning tanlovingiz:","Qotil":"🔪 Sizning tanlovingiz:","Minior":"💣 Sizning tanlovingiz:","Snayper":"👨🏻‍🎤 Sizning tanlovingiz:","Qorbobo":"🎅 Sizning tanlovingiz:","Qorbola":"🌨️ Sizning tanlovingiz:","Tabib":"🩺 Sizning tanlovingiz:"}
     await safe_edit(q,texts.get(r,"Sizning tanlovingiz:")+f"\n\n{visible_name(g,t)}",None)
     persist_games()
@@ -314,7 +319,7 @@ async def cb_af(update,ctx):
     g=next((x for x in games.values() if x.get("id")==gid),None)
     if not g or q.from_user.id!=int(afid) or g.get("phase") not in {"night","afsungar"}: return await cb_answer(q,"Bu qaror mavjud emas.",True)
     a=getp(g,int(attid)); af=getp(g,int(afid))
-    if not af or not a or not af.get("alive") or af.get("role")!="Afsungar": return await cb_answer(q,"O‘yinchi topilmadi.",True)
+    if not af or not a or not af.get("alive") or af.get("role")!="Sehrgar": return await cb_answer(q,"O‘yinchi topilmadi.",True)
     if int(attid) not in af.get("afsungar_decisions",{}): return await cb_answer(q,"Bu hujum topilmadi.",True)
     if af["afsungar_decisions"].get(int(attid)) is not None: return await cb_answer(q,"Qaror allaqachon tanlangan.",True)
     af["afsungar_decisions"][int(attid)]=decision
@@ -343,3 +348,51 @@ async def cmd_stop(update,ctx):
     g=games.get(update.effective_chat.id)
     if not g or g.get("phase") in {"ended","cancelled"}: return await update.message.reply_text("ℹ️ Faol o‘yin yo‘q.")
     cancel_game(g); await unpin_lobby(ctx.bot,g); await update.message.reply_text("🛑 O‘yin admin tomonidan to‘xtatildi.")
+
+
+async def cb_amode(update,ctx):
+    """Kimyogar / Qaroqchi / Joker pick what to do before choosing the target."""
+    q=update.callback_query; parts=q.data.split(":")
+    if len(parts)!=4: return await cb_answer(q,"Bu tanlov mavjud emas.",True)
+    _,gid,uid,mode=parts; g=find_game(gid)
+    if not g or g.get("phase")!="night" or q.from_user.id!=int(uid): return await cb_answer(q,"Bu tun tugagan.",True)
+    p=getp(g,int(uid)); r=ability_role(p) if p else None
+    if not p or not p.get("alive") or r not in ACTION_MODES or mode not in {m for m,_ in ACTION_MODES[r]}:
+        return await cb_answer(q,"Bu tanlov mavjud emas.",True)
+    if p.get("action") is not None: return await cb_answer(q,"Tanlovingiz allaqachon tasdiqlangan.",True)
+    p["pending_mode"]=mode
+    await safe_edit(q,NIGHT_PROMPTS[r],name_buttons(g,"act",p["id"])); await cb_answer(q)
+
+
+async def cb_kon(update,ctx):
+    q=update.callback_query; parts=q.data.split(":")
+    if len(parts)!=4: return await cb_answer(q,"Bu tanlov mavjud emas.",True)
+    _,gid,uid,n=parts; g=find_game(gid)
+    if not g or g.get("phase")!="night" or q.from_user.id!=int(uid): return await cb_answer(q,"Bu tun tugagan.",True)
+    p=getp(g,int(uid))
+    if not p or not p.get("alive") or ability_role(p)!="Konchi" or n not in konchi_kons(g,p["id"]): return await cb_answer(q,"Bu kon mavjud emas.",True)
+    if p.get("action") is not None: return await cb_answer(q,"Tanlovingiz allaqachon tasdiqlangan.",True)
+    p["action"]={"type":"kon","kon":n,"selected_at":time.time()}
+    await safe_edit(q,f"👷🏻‍♂️ Sizning tanlovingiz: ⛏ {n}-kon. Natija tongda ma’lum bo‘ladi.",None)
+    persist_games(); await cb_answer(q,"Tanlov saqlandi.")
+
+
+async def cb_card(update,ctx):
+    """The Joker's target picks one of four cards during the day."""
+    q=update.callback_query; parts=q.data.split(":")
+    if len(parts)!=4: return await cb_answer(q,"Bu karta mavjud emas.",True)
+    _,gid,uid,n=parts; g=find_game(gid)
+    if not g or q.from_user.id!=int(uid) or g.get("phase") in {"night","ended","cancelled"}: return await cb_answer(q,"Kartalar muddati tugagan.",True)
+    card=(g.get("joker_cards") or {}).pop(str(uid),None)
+    p=getp(g,int(uid))
+    if not card or not p or not p.get("alive"): return await cb_answer(q,"Kartalar muddati tugagan.",True)
+    joker=getp(g,card["joker"])
+    if n==card["death"]:
+        kill_player(p,"joker")
+        if joker: joker["won_flag"]=True
+        await safe_edit(q,"🤡 <b>Siz o‘lim kartasini tanladingiz...</b>",None)
+        await ctx.bot.send_message(g["chat_id"],f"🤡 Joker xursand: {visible_mention(g,p,True)} o‘lim kartasini tanladi va o‘ldi! U {role_label(p['role'])} edi.",parse_mode=ParseMode.HTML)
+    else:
+        await safe_edit(q,"🤡 <b>Tabriklaymiz, siz to‘g‘ri kartani tanladingiz va tirik qoldingiz!</b>",None)
+        await ctx.bot.send_message(g["chat_id"],"🤡 Jokerni xafa qilishdi!")
+    persist_games(); await cb_answer(q)

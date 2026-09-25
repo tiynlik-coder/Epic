@@ -14,6 +14,9 @@ from .other_handlers import (
 from .game import (
     cb_action,
     cb_af,
+    cb_amode,
+    cb_card,
+    cb_kon,
     cb_folbin_msg,
     cb_heroact,
     cb_join,
@@ -162,6 +165,9 @@ def register_handlers(app):
     app.add_handler(CallbackQueryHandler(cb_mode,r"^mode:"))
     app.add_handler(CallbackQueryHandler(cb_action,r"^act:"))
     app.add_handler(CallbackQueryHandler(cb_manip2,r"^manip2:"))
+    app.add_handler(CallbackQueryHandler(cb_amode,r"^amode:"))
+    app.add_handler(CallbackQueryHandler(cb_kon,r"^kon:"))
+    app.add_handler(CallbackQueryHandler(cb_card,r"^card:"))
     app.add_handler(CallbackQueryHandler(cb_res,r"^res:"))
     app.add_handler(CallbackQueryHandler(cb_zombie,r"^zombie:"))
     app.add_handler(CallbackQueryHandler(cb_katani_mode,r"^katani_mode:"))

@@ -116,7 +116,8 @@ _TABLES = [
         wins BIGINT DEFAULT 0, games BIGINT DEFAULT 0, inventory TEXT DEFAULT '{}',
         protection INTEGER DEFAULT 0, fake_document INTEGER DEFAULT 0, hanging_protection INTEGER DEFAULT 0,
         rifle INTEGER DEFAULT 0, mask INTEGER DEFAULT 0, supper_shield INTEGER DEFAULT 0, active_role INTEGER DEFAULT 0,
-        hero_protection INTEGER DEFAULT 0, medicine_protection INTEGER DEFAULT 0, first_start_granted INTEGER DEFAULT 0
+        hero_protection INTEGER DEFAULT 0, medicine_protection INTEGER DEFAULT 0, first_start_granted INTEGER DEFAULT 0,
+        killer_protection INTEGER DEFAULT 0, slip_protection INTEGER DEFAULT 0
     )""",
     """CREATE TABLE IF NOT EXISTS heroes(
         user_id BIGINT PRIMARY KEY, name TEXT DEFAULT 'Nomsiz', level INTEGER DEFAULT 1,
@@ -152,7 +153,7 @@ _TABLES = [
     )""",
 ]
 
-_INVENTORY_COLUMNS = ("protection","fake_document","hanging_protection","rifle","mask","supper_shield","active_role","hero_protection","medicine_protection")
+_INVENTORY_COLUMNS = ("protection","fake_document","hanging_protection","rifle","mask","supper_shield","active_role","hero_protection","medicine_protection","killer_protection","slip_protection")
 
 
 def _columns(con, table):
