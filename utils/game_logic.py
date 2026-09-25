@@ -15,6 +15,7 @@ from telegram.error import TelegramError
 from config import EMOJI, MAFIA, MIN_PLAYERS, UNIFORM_KILLERS, WIN_REWARD
 from models.chat_settings import get_settings, item_enabled
 from models.database import db
+from models.economy import disabled_items
 from models.pairs import partner_of
 from models.users import add_stats, consume_inventory, inv
 from utils.game_roles import apply_admin_roles, build_role_list
@@ -74,15 +75,17 @@ async def start_game(app,g):
     items=settings.get("items",{})
     for p,r in zip(g["players"].values(),role_list):
         p["role"]=r; p["alive"]=True; p["base_hp"]=150 if r=="Tabib" else 100; p["max_hp"]=p["base_hp"]; p["hp"]=p["base_hp"]; p["temp_hp_bonus"]=0
-        d=inv(p["id"])
-        has=lambda key: items.get(key,True) and d.get(key,0)>0
+        d=inv(p["id"]); off=disabled_items(p["id"])
+        # An item works when the chat allows it, the player has not switched it off and owns one.
+        usable=lambda key: items.get(key,True) and key not in off
+        has=lambda key: usable(key) and d.get(key,0)>0
         p["protected"]=has("protection")
         p["hanging_protected"]=has("hanging_protection")
         p["supper"]=has("supper_shield")
-        p["mask"]=items.get("mask",True) and consume_inventory(p,"mask")
-        p["fake_document"]=items.get("fake_document",True) and consume_inventory(p,"fake_document")
+        p["mask"]=usable("mask") and consume_inventory(p,"mask")
+        p["fake_document"]=usable("fake_document") and consume_inventory(p,"fake_document")
         p["rifle"]=has("rifle")
-        p["hero_protection"]=d.get("hero_protection",0)>0
+        p["hero_protection"]=has("hero_protection")
         p["killer_protection"]=has("killer_protection")
         p["slip_protection"]=has("slip_protection")
         p["medicine"]=has("medicine_protection")
@@ -452,6 +455,14 @@ async def after_vote(app,g):
     g["night"]+=1; await start_night(app,g)
 
 
+def record_results(g, win_ids):
+    """One row per player: winners get 2*players-winners points, the others -winners (Baku rating)."""
+    n=len(g["players"]); w=len(win_ids); now=time.time()
+    rows=[(g["id"],g["chat_id"],p["id"],p.get("role") or "",1 if p["id"] in win_ids else 0,(2*n-w) if p["id"] in win_ids else -w,now) for p in g["players"].values()]
+    if not rows: return
+    con=db(); con.executemany("INSERT INTO game_results(game_id,chat_id,user_id,role,won,points,created_at) VALUES(?,?,?,?,?,?,?)",rows); con.commit(); con.close()
+
+
 async def end_game(app,g,forced=None):
     if g.get("ended"): return
     cancel_jobs(g); g["ended"]=True; g["phase"]="ended"; g["phase_id"]+=1
@@ -465,6 +476,7 @@ async def end_game(app,g,forced=None):
         rewards[p["id"]]=WIN_REWARD*(2 if await is_epic_channel_member(app.bot,p["id"]) else 1)
     if rewards:
         con=db(); con.executemany("UPDATE users SET money=money+? WHERE user_id=?",[(v,k) for k,v in rewards.items()]); con.commit(); con.close()
+    record_results(g,win_ids)
     elapsed=max(0,int(time.time()-(g.get("start_time") or time.time())))
     mm,ss=divmod(elapsed,60)
     lines=["<b>O’yin tugadi!</b>","","<b>G’oliblar:</b>"]

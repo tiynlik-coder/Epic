@@ -138,7 +138,7 @@ class WiringTests(unittest.TestCase):
     def test_all_handlers_registered(self):
         import bot
         app = bot.build_app("123:TEST")
-        self.assertEqual(sum(len(h) for h in app.handlers.values()), 109)
+        self.assertEqual(sum(len(h) for h in app.handlers.values()), 123)
 
 
 if __name__ == "__main__":

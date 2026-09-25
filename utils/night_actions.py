@@ -91,7 +91,8 @@ def konchi_kons(g, uid):
 async def offer_night_action(app,g,p):
     r=ability_role(p)
     if not p["alive"]: return
-    if hero_row(p["id"]):
+    heroes_on=((g.get("settings") or {}).get("items") or {}).get("hero",True)
+    if heroes_on and hero_row(p["id"]):
         await send_private(app.bot,p["id"],"🥷 Geroy harakati:",InlineKeyboardMarkup([[InlineKeyboardButton("👊 Hujum",callback_data=f"heroact:attack:{g['id']}:{p['id']}")],[InlineKeyboardButton("🛡 Himoyalanish",callback_data=f"heroact:shield:{g['id']}:{p['id']}")],[InlineKeyboardButton("⏭ O‘tkazib yuborish",callback_data=f"heroact:skip:{g['id']}:{p['id']}")]]))
     if r in PASSIVE_ROLES: return
     if r=="Tulki" and p.get("tulki_used"): return

@@ -1,9 +1,11 @@
 """Profile text building."""
 
 import html
+import time
 
-from config import CHANNEL_USERNAME, EMOJI, WIN_REWARD
+from config import CHANNEL_USERNAME, EMOJI, SHOP_ITEMS, WIN_REWARD
 from models.admin_data import active_roles_for
+from models.economy import disabled_items, vip_until
 from models.users import get_user, inv
 from utils.telegram_utils import is_epic_channel_member
 
@@ -16,23 +18,18 @@ def stylized_name(name: str) -> str:
 
 
 def profile_text(uid):
-    r=get_user(uid); d=inv(uid)
+    r=get_user(uid); d=inv(uid); off=disabled_items(uid)
     name=stylized_name(str(r['first_name'] or 'Nomsiz')) if r else stylized_name('Nomsiz')
+    until=vip_until(uid)
+    vip="" if until is None else " ⭐️ VIP" + ("" if until==0 else f" ({max(0,int((until-time.time())//86400))} kun)")
     lines=[
-        f"<b>{html.escape(name)}</b>",
+        f"<b>{html.escape(name)}</b>{vip}",
         "",
         f"💵 <b>Pullar:</b> {int(r['money'] or 0)}" if r else "💵 <b>Pullar:</b> 0",
         f"💎 <b>Olmos:</b> {int(r['diamonds'] or 0)}" if r else "💎 <b>Olmos:</b> 0",
         f"🪙 <b>Epic Coin:</b> {int(r['coins'] or 0)}" if r else "🪙 <b>Epic Coin:</b> 0",
         "",
-        f"🛡 <b>Himoya:</b> {d.get('protection',0)}",
-        f"📃 <b>Soxta Hujjat:</b> {d.get('fake_document',0)}",
-        f"⚖️ <b>Osilishdan himoya:</b> {d.get('hanging_protection',0)}",
-        f"🔰 <b>Supper qalqon:</b> {d.get('supper_shield',0)}",
-        f"🔫 <b>Miltiq:</b> {d.get('rifle',0)}",
-        f"💊 <b>Doridan himoya:</b> {d.get('medicine_protection',0)}",
-        f"🎭 <b>Maska:</b> {d.get('mask',0)}",
-        f"🖍️ <b>Geroydan himoya:</b> {d.get('hero_protection',0)}",
+        *[f"{label}: {d.get(key,0)}"+(" (o‘chirilgan)" if key in off else "") for key,(label,_,_) in SHOP_ITEMS.items()],
         "",
         f"🎲 <b>Barcha o‘yinlar:</b> {int(r['games'] or 0) if r else 0}",
         f"🎯 <b>G‘alaba:</b> {int(r['wins'] or 0) if r else 0}",

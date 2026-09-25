@@ -2,17 +2,26 @@
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from config import ADMIN_ACTIVE_ROLE_PRICES, EMOJI, ROLES
+from config import ADMIN_ACTIVE_ROLE_PRICES, CURRENCY_SIGN, EMOJI, ROLES, SHOP_ITEMS
 from models.database import db
 from models.heroes import hero_row
 
 
 def profile_markup():
-    return InlineKeyboardMarkup([[InlineKeyboardButton("🥷 Mening Geroyim",callback_data="menu:hero")],[InlineKeyboardButton("📊 Reyting",callback_data="menu:rating")],[InlineKeyboardButton("🛒 Do‘kon",callback_data="menu:market")],[InlineKeyboardButton("🔙 Orqaga",callback_data="menu:home")]])
+    b=InlineKeyboardButton
+    return InlineKeyboardMarkup([
+        [b("🥷 Mening Geroyim",callback_data="menu:hero"),b("📊 Reyting",callback_data="menu:rating")],
+        [b("🛒 Do‘kon",callback_data="menu:market"),b("🃏 Faol rol",callback_data="buy:active")],
+        [b("💎 Olmos sotib olish",callback_data="eco:diamonds"),b("💷 Pul sotib olish",callback_data="eco:money")],
+        [b("🎁 Sandiqlar",callback_data="eco:chests"),b("⭐️ VIP",callback_data="eco:vip")],
+        [b("🎚 Buyumlarni yoqish/o‘chirish",callback_data="eco:items")],
+        [b("🔄 Profil almashish",callback_data="eco:swap"),b("🌟 Premium guruhlar",callback_data="eco:groups")],
+        [b("🔙 Orqaga",callback_data="menu:home")],
+    ])
 
 
 def roles_menu_markup():
-    # All 30 canonical roles, two per row. Clicking a role edits the same message.
+    # Every role, two per row. Clicking a role edits the same message.
     rows=[]
     for i in range(0, len(ROLES), 2):
         pair=ROLES[i:i+2]
@@ -22,17 +31,10 @@ def roles_menu_markup():
 
 
 def market_keyboard():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("📊 Statistikani nollash — 600💷",callback_data="buy:stats")],
-        [InlineKeyboardButton("📃 Soxta Hujjat — 200💷",callback_data="buy:fake")],
-        [InlineKeyboardButton("🛡 Himoya — 200💷",callback_data="buy:protection")],
-        [InlineKeyboardButton("⚖️ Osilishdan himoya — 2💎",callback_data="buy:hanging")],
-        [InlineKeyboardButton("🔰 Supper qalqon — 3💎",callback_data="buy:supper")],
-        [InlineKeyboardButton("🔫 Miltiq — 1💎",callback_data="buy:rifle")],
-        [InlineKeyboardButton("🎭 Maska — 1💎",callback_data="buy:mask")],
-        [InlineKeyboardButton("🎭 Faol rol",callback_data="buy:active")],
-        [InlineKeyboardButton("🔙 Orqaga",callback_data="menu:home")],
-    ])
+    rows=[[InlineKeyboardButton("📊 Statistikani nollash — 600💷",callback_data="buy:stats")]]
+    rows+=[[InlineKeyboardButton(f"{label} — {price}{CURRENCY_SIGN[cur]}",callback_data=f"buy:{key}")] for key,(label,cur,price) in SHOP_ITEMS.items()]
+    rows+=[[InlineKeyboardButton("🎭 Faol rol",callback_data="buy:active")],[InlineKeyboardButton("🔙 Orqaga",callback_data="menu:profile")]]
+    return InlineKeyboardMarkup(rows)
 
 
 def hero_menu_markup(uid):

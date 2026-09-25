@@ -1,6 +1,6 @@
 """Handler registration. Order matters: block guards (group -100) run before everything else."""
 
-from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler, filters
+from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler, PreCheckoutQueryHandler, filters
 
 from .other_handlers import (
     cb_active_role,
@@ -101,6 +101,23 @@ from .pairs import (
     cmd_mypara,
     cmd_para,
 )
+from .economy import (
+    GIVEAWAY_ITEMS,
+    cb_eco,
+    cb_giveaway,
+    cb_lottery,
+    cmd_change,
+    cmd_giveaway,
+    cmd_give,
+    cmd_ginfo,
+    cmd_gsend,
+    cmd_money,
+    cmd_sgive,
+    cmd_tgeroy,
+    precheckout,
+    successful_payment,
+    swap_id_text,
+)
 from .settings import (
     cb_settings,
     cmd_settings,
@@ -136,6 +153,16 @@ def register_handlers(app):
     app.add_handler(CommandHandler("para",cmd_para))
     app.add_handler(CommandHandler("mypara",cmd_mypara))
     app.add_handler(CommandHandler("dpara",cmd_dpara))
+    app.add_handler(CommandHandler("money",cmd_money))
+    app.add_handler(CommandHandler("give",cmd_give))
+    app.add_handler(CommandHandler("sgive",cmd_sgive))
+    app.add_handler(CommandHandler("gsend",cmd_gsend))
+    app.add_handler(CommandHandler("ginfo",cmd_ginfo))
+    app.add_handler(CommandHandler(list(GIVEAWAY_ITEMS),cmd_giveaway))
+    app.add_handler(CommandHandler("change",cmd_change))
+    app.add_handler(CommandHandler("tgeroy",cmd_tgeroy))
+    app.add_handler(PreCheckoutQueryHandler(precheckout))
+    app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT,successful_payment))
     app.add_handler(CommandHandler("tep",cmd_tep))
     app.add_handler(CommandHandler("profile",cmd_profile))
     app.add_handler(CommandHandler("market",cmd_market))
@@ -204,6 +231,9 @@ def register_handlers(app):
     app.add_handler(CallbackQueryHandler(cb_afs,r"^afs:"))
     app.add_handler(CallbackQueryHandler(cb_settings,r"^cset:"))
     app.add_handler(CallbackQueryHandler(cb_para,r"^para:"))
+    app.add_handler(CallbackQueryHandler(cb_eco,r"^eco:"))
+    app.add_handler(CallbackQueryHandler(cb_giveaway,r"^gw:"))
+    app.add_handler(CallbackQueryHandler(cb_lottery,r"^lot:"))
     app.add_handler(CallbackQueryHandler(ignore_button,r"^ignore$"))
     app.add_handler(CallbackQueryHandler(cb_res,r"^res:"))
     app.add_handler(CallbackQueryHandler(cb_zombie,r"^zombie:"))
@@ -218,6 +248,8 @@ def register_handlers(app):
     app.add_handler(CallbackQueryHandler(hero_callback,r"^hero:"))
     app.add_handler(CallbackQueryHandler(cb_heroact,r"^heroact:"))
     app.add_handler(CallbackQueryHandler(cb_buy,r"^buy:"))
+    # A pending profile-swap id is consumed here and stops further private-text handlers.
+    app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE & ~filters.COMMAND, swap_id_text), group=0)
     app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE & ~filters.COMMAND, admin_text_handler), group=1)
     app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE & ~filters.COMMAND, hero_private_text), group=2)
     app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE & ~filters.COMMAND, private_game_text), group=3)

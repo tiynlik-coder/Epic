@@ -17,6 +17,8 @@ DEFAULTS = {
     "items": {k: True for k in ITEM_KEYS},
     "allow_leave": True, "last_words": True, "anonymous_votes": False, "confirm_hanging": True, "afk_kick": True,
     "max_players": 50,
+    # Giveaways in this chat can be claimed only after this many games here.
+    "give_min_games": 0,
     # Who may use /game, /start, /stop: admin | all | owner.
     "perm_game": "admin", "perm_start": "admin", "perm_stop": "admin",
     # Who may write in the group during a game: all | players | alive | admins.
@@ -24,7 +26,7 @@ DEFAULTS = {
 }
 
 LIMITS = {"night_time": (20, 180), "day_time": (20, 300), "vote_time": (15, 120), "like_time": (10, 60),
-          "word_time": (15, 120), "max_players": (4, 50)}
+          "word_time": (15, 120), "max_players": (4, 50), "give_min_games": (0, 100)}
 
 
 def get_settings(chat_id):

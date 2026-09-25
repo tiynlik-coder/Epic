@@ -7,7 +7,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ChatType, ParseMode
 from telegram.ext import ContextTypes
 
-from config import ADMIN_ACTIVE_ROLE_PRICES, EPIC_CHANNEL_URL, EPIC_SUPPORT_URL, HERO_PROTECTION_PRICE, MIN_PLAYERS, ROLES
+from config import ADMIN_ACTIVE_ROLE_PRICES, CURRENCY_SIGN, EPIC_CHANNEL_URL, EPIC_SUPPORT_URL, MIN_PLAYERS, ROLES, SHOP_ITEMS
 from handlers.geroy_handlers import show_hero
 from keyboards.main_keyboard import main_menu
 from keyboards.user_keyboards import active_role_market_markup, market_keyboard, profile_markup, roles_menu_markup
@@ -128,12 +128,12 @@ async def cb_buy(update,ctx):
     await cb_answer(q)
     if q.message.chat.type!=ChatType.PRIVATE:return
     uid=q.from_user.id
-    mapping={"fake":("fake_document","money",200,"Soxta hujjat"),"protection":("protection","money",200,"Himoya"),"mask":("mask","diamonds",1,"Niqob"),"rifle":("rifle","diamonds",1,"Miltiq"),"hanging":("hanging_protection","diamonds",2,"Osilishdan himoya"),"supper":("supper_shield","diamonds",3,"Supper qalqon"),"hero_protection":("hero_protection","diamonds",HERO_PROTECTION_PRICE,"Geroydan himoya")}
     if item=="stats":
         con=db(); cur=con.execute("UPDATE users SET money=money-600,wins=0,games=0 WHERE user_id=? AND money>=600",(uid,)); con.commit(); con.close()
         return await cb_answer(q,"Statistika nollandi✅" if cur.rowcount==1 else "Sizda yetarli 💷 mavjud emas❌",True)
-    key,currency,cost,title=mapping[item]; ok,msg=buy(uid,key,currency,cost)
-    await cb_answer(q,(f"{title} xarid qilindi✅" if ok else f"Sizda yetarli {'💎' if currency=='diamonds' else '💷'} mavjud emas❌"),True)
+    if item not in SHOP_ITEMS: return await cb_answer(q,"Bunday buyum yo‘q.",True)
+    title,currency,cost=SHOP_ITEMS[item]; ok,_=buy(uid,item,currency,cost)
+    await cb_answer(q,(f"{title} xarid qilindi✅" if ok else f"Sizda yetarli {CURRENCY_SIGN[currency]} mavjud emas❌"),True)
 
 
 async def cb_active_role(update,ctx):

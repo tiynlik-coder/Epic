@@ -117,7 +117,7 @@ _TABLES = [
         protection INTEGER DEFAULT 0, fake_document INTEGER DEFAULT 0, hanging_protection INTEGER DEFAULT 0,
         rifle INTEGER DEFAULT 0, mask INTEGER DEFAULT 0, supper_shield INTEGER DEFAULT 0, active_role INTEGER DEFAULT 0,
         hero_protection INTEGER DEFAULT 0, medicine_protection INTEGER DEFAULT 0, first_start_granted INTEGER DEFAULT 0,
-        killer_protection INTEGER DEFAULT 0, slip_protection INTEGER DEFAULT 0
+        killer_protection INTEGER DEFAULT 0, slip_protection INTEGER DEFAULT 0, disabled_items TEXT DEFAULT ''
     )""",
     """CREATE TABLE IF NOT EXISTS heroes(
         user_id BIGINT PRIMARY KEY, name TEXT DEFAULT 'Nomsiz', level INTEGER DEFAULT 1,
@@ -145,8 +145,9 @@ _TABLES = [
         id {pk}, user_id BIGINT NOT NULL, role TEXT NOT NULL,
         is_active INTEGER DEFAULT 1, created_at DOUBLE PRECISION DEFAULT 0
     )""",
+    # until: 0 = granted by an admin without expiry, else unix time the bought VIP ends.
     """CREATE TABLE IF NOT EXISTS admin_vips(
-        user_id BIGINT PRIMARY KEY, created_at DOUBLE PRECISION DEFAULT 0
+        user_id BIGINT PRIMARY KEY, created_at DOUBLE PRECISION DEFAULT 0, until DOUBLE PRECISION DEFAULT 0
     )""",
     """CREATE TABLE IF NOT EXISTS pairs(
         user_id BIGINT PRIMARY KEY, partner_id BIGINT NOT NULL, created_at DOUBLE PRECISION DEFAULT 0
@@ -154,6 +155,42 @@ _TABLES = [
     """CREATE TABLE IF NOT EXISTS chat_settings(
         chat_id BIGINT PRIMARY KEY, data TEXT DEFAULT '{}', updated_at DOUBLE PRECISION DEFAULT 0
     )""",
+    # Economy
+    """CREATE TABLE IF NOT EXISTS group_balance(
+        chat_id BIGINT PRIMARY KEY, balance BIGINT DEFAULT 0, reset_at DOUBLE PRECISION DEFAULT 0,
+        day TEXT DEFAULT '', moved_money BIGINT DEFAULT 0, moved_diamonds BIGINT DEFAULT 0
+    )""",
+    """CREATE TABLE IF NOT EXISTS chest_opens(
+        user_id BIGINT NOT NULL, kind TEXT NOT NULL, opened_at DOUBLE PRECISION DEFAULT 0,
+        PRIMARY KEY(user_id, kind)
+    )""",
+    """CREATE TABLE IF NOT EXISTS giveaways(
+        id {pk}, chat_id BIGINT NOT NULL, message_id BIGINT DEFAULT 0, creator_id BIGINT NOT NULL,
+        item TEXT NOT NULL, total INTEGER NOT NULL, remaining INTEGER NOT NULL, created_at DOUBLE PRECISION DEFAULT 0
+    )""",
+    """CREATE TABLE IF NOT EXISTS giveaway_claims(
+        giveaway_id BIGINT NOT NULL, user_id BIGINT NOT NULL, PRIMARY KEY(giveaway_id, user_id)
+    )""",
+    """CREATE TABLE IF NOT EXISTS lotteries(
+        id {pk}, chat_id BIGINT NOT NULL, creator_id BIGINT NOT NULL, amount BIGINT NOT NULL, created_at DOUBLE PRECISION DEFAULT 0
+    )""",
+    """CREATE TABLE IF NOT EXISTS lottery_entries(
+        lottery_id BIGINT NOT NULL, user_id BIGINT NOT NULL, PRIMARY KEY(lottery_id, user_id)
+    )""",
+    """CREATE TABLE IF NOT EXISTS payments(
+        invoice_id TEXT PRIMARY KEY, user_id BIGINT NOT NULL, provider TEXT NOT NULL, diamonds BIGINT NOT NULL,
+        amount BIGINT NOT NULL, status TEXT DEFAULT 'pending', created_at DOUBLE PRECISION DEFAULT 0
+    )""",
+    """CREATE TABLE IF NOT EXISTS profile_offers(
+        from_id BIGINT NOT NULL, to_id BIGINT NOT NULL, created_at DOUBLE PRECISION DEFAULT 0, PRIMARY KEY(from_id, to_id)
+    )""",
+    # One row per player per finished game: leaderboards and "played N games here" checks.
+    """CREATE TABLE IF NOT EXISTS game_results(
+        id {pk}, game_id TEXT NOT NULL, chat_id BIGINT NOT NULL, user_id BIGINT NOT NULL, role TEXT DEFAULT '',
+        won INTEGER DEFAULT 0, points INTEGER DEFAULT 0, created_at DOUBLE PRECISION DEFAULT 0
+    )""",
+    "CREATE INDEX IF NOT EXISTS game_results_user ON game_results(user_id, created_at)",
+    "CREATE INDEX IF NOT EXISTS game_results_chat ON game_results(chat_id, created_at)",
     """CREATE TABLE IF NOT EXISTS admin_logs(
         id {pk}, admin_id BIGINT, action TEXT, target TEXT DEFAULT '', created_at DOUBLE PRECISION DEFAULT 0
     )""",
@@ -169,16 +206,21 @@ def _columns(con, table):
     return {r[1] for r in con.execute(f"PRAGMA table_info({table})").fetchall()}
 
 
+def _add_columns(con, table, columns):
+    existing = _columns(con, table)
+    for col, ddl in columns.items():
+        if col not in existing:
+            con.execute(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}")
+
+
 def init_db():
     con = db()
     pk = "BIGSERIAL PRIMARY KEY" if IS_PG else "INTEGER PRIMARY KEY AUTOINCREMENT"
     for ddl in _TABLES:
         con.execute(ddl.replace("{pk}", pk))
-    # Databases created by older Epic Mafia builds may miss inventory columns.
-    existing = _columns(con, "users")
-    for col in _INVENTORY_COLUMNS:
-        if col not in existing:
-            con.execute(f"ALTER TABLE users ADD COLUMN {col} INTEGER DEFAULT 0")
+    # Databases created by older Epic Mafia builds may miss newer columns.
+    _add_columns(con, "users", {**{c:"INTEGER DEFAULT 0" for c in _INVENTORY_COLUMNS}, "disabled_items":"TEXT DEFAULT ''"})
+    _add_columns(con, "admin_vips", {"until":"DOUBLE PRECISION DEFAULT 0"})
     if not IS_PG:
         _migrate_legacy_inventory(con)
     con.commit(); con.close()

@@ -14,6 +14,7 @@ from config import ADMIN_IDS, log
 from handlers import register_handlers
 from models.database import init_db
 from utils.game_loop import resume_games
+from utils.maintenance import periodic_tasks
 from utils.state import load_games_state
 
 
@@ -51,6 +52,9 @@ async def setup_bot_commands(app):
         BotCommand("stop", "O‘yinni to‘xtatish"),
         BotCommand("leave", "O‘yindan chiqish"),
         BotCommand("settings", "O‘yin sozlamalari (adminlar)"),
+        BotCommand("ginfo", "Guruh hisobi"),
+        BotCommand("send", "Olmos tarqatish"),
+        BotCommand("change", "Olmos lotereyasi"),
     ]
     await app.bot.set_my_commands(group_commands, scope=BotCommandScopeAllGroupChats())
 
@@ -67,6 +71,7 @@ def token():
 def build_app(t):
     app=ApplicationBuilder().token(t).post_init(setup_bot_commands).build()
     register_handlers(app)
+    app.job_queue.run_repeating(periodic_tasks, interval=6*3600, first=120, name="periodic")
     return app
 
 

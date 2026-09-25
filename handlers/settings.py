@@ -71,6 +71,7 @@ def section(cid, name, s, page=0):
     if name=="rules":
         rows=[[_btn(("✅ " if s[k] else "❌ ")+label,cid,"rl",k)] for k,label in RULE_LABELS.items()]
         rows.append([_btn("−",cid,"t","max_players",-5),InlineKeyboardButton(f"👥 Maks. o‘yinchi: {s['max_players']}",callback_data="ignore"),_btn("+",cid,"t","max_players",5)])
+        rows.append([_btn("−",cid,"t","give_min_games",-1),InlineKeyboardButton(f"🎁 Sovg‘a uchun min o‘yin: {s['give_min_games']}",callback_data="ignore"),_btn("+",cid,"t","give_min_games",1)])
         return "⚙️ <b>Qoidalar</b>",InlineKeyboardMarkup(rows+[_back(cid)])
     if name=="perms":
         rows=[[_btn(f"{label}: {PERM_NAMES[s[k]]}",cid,"pm",k)] for k,label in PERM_LABELS.items()]
@@ -109,7 +110,7 @@ async def cb_settings(update, ctx):
     if action in {"times","roleset","items","rules","perms","write"}: show=action
     elif action=="roles": show="roles"; page=int(args[0]) if args and args[0].isdigit() else 0
     elif action=="t" and len(args)==2 and args[0] in LIMITS:
-        s=update_setting(cid,args[0],int(s[args[0]])+int(args[1])); show="rules" if args[0]=="max_players" else "times"
+        s=update_setting(cid,args[0],int(s[args[0]])+int(args[1])); show="rules" if args[0] in {"max_players","give_min_games"} else "times"
     elif action=="rs" and args and args[0] in ("epic",)+ROLESETS:
         s=update_setting(cid,"roleset",args[0]); show="roleset"
     elif action=="wolf":

@@ -120,6 +120,47 @@ HERO_NAME_PRICE = 780             # Epic Coin
 HERO_PROTECTION_PRICE = 7         # diamond
 HERO_MARKET_FEE = 5               # diamond
 
+# ---------------- MARKET ----------------
+# item: (label, currency, price). Currencies: money (💷) or diamonds (💎).
+SHOP_ITEMS = {
+    "fake_document": ("📃 Soxta hujjat", "money", 200),
+    "protection": ("🛡 Himoya", "money", 200),
+    "slip_protection": ("🪤 Sirpanishdan himoya", "money", 1000),
+    "hanging_protection": ("⚖️ Osilishdan himoya", "diamonds", 2),
+    "killer_protection": ("⛑️ Qotildan himoya", "diamonds", 2),
+    "medicine_protection": ("💊 Doridan himoya", "diamonds", 2),
+    "supper_shield": ("🔰 Supper qalqon", "diamonds", 3),
+    "rifle": ("🔫 Miltiq", "diamonds", 1),
+    "mask": ("🎭 Maska", "diamonds", 1),
+    "hero_protection": ("🖍️ Geroydan himoya", "diamonds", HERO_PROTECTION_PRICE),
+}
+CURRENCY_SIGN = {"money": "💷", "diamonds": "💎", "coins": "🪙"}
+# 💷 bought with 💎: (money, diamonds)
+MONEY_PACKS = [(250, 1), (500, 2), (750, 3), (1000, 4), (5000, 18), (10000, 30)]
+# 💎 bought with Telegram Stars: diamonds -> stars
+STAR_PACKS = {1: 7, 10: 70, 30: 200, 70: 450, 250: 1300, 1000: 5000}
+# 💎 bought by card through MirPay: diamonds -> so'm (only when MIRPAY_* is set in .env)
+CARD_PACKS = {1: 1275, 10: 12750, 30: 37400, 70: 84830, 250: 250750, 1000: 952000}
+MIRPAY_KASSA_ID = os.getenv("MIRPAY_KASSA_ID", "").strip()
+MIRPAY_API_KEY = os.getenv("MIRPAY_API_KEY", "").strip()
+# Where large purchases/transfers are reported (a group id). Empty = no reports.
+REPORT_CHAT_ID = int(os.getenv("REPORT_CHAT_ID")) if os.getenv("REPORT_CHAT_ID", "").lstrip("-").isdigit() else None
+# @username or link of whoever sells diamonds by card manually. Empty = no button.
+DIAMOND_SELLER_URL = os.getenv("DIAMOND_SELLER_URL", "").strip()
+
+TRANSFER_FEE_MONEY = 10          # 💷 fee on /money
+# Groups whose balance is below GROUP_UNLIMITED_BALANCE may move at most this much per day.
+DAILY_GROUP_LIMIT = {"money": 5000, "diamonds": 50}
+GROUP_UNLIMITED_BALANCE = 50
+GROUP_BALANCE_RESET_DAYS = 15
+
+SUPER_CHEST_PRICE = 5000         # 💷 -> 2..5 💎
+MEGA_CHEST_PRICE = 15            # 💎 -> 1 in 9: double everything, else bankrupt
+CHEST_COOLDOWN_DAYS = 30         # VIPs are not limited
+VIP_PRICE = 30                   # 💎
+VIP_DAYS = 30
+PROFILE_SWAP_PRICE = 5           # 💎, paid by whoever proposes
+
 # ---------------- ACTIVE ROLE MARKET ----------------
 ADMIN_ACTIVE_ROLE_PRICES = {
     "Minior": (6, "diamonds"),
@@ -135,9 +176,27 @@ ADMIN_ACTIVE_ROLE_PRICES = {
     "Shifokor": (600, "money"),
     "Kezuvchi": (500, "money"),
     "Advokat": (500, "money"),
-    "Sehrgar": (500, "money"),
+    "Sehrgar": (3, "diamonds"),
     "Daydi": (400, "money"),
     "Suidsid": (300, "money"),
     "Ayg‘oqchi": (300, "money"),
     "Tinch axoli": (100, "money"),
+    "Joker": (6, "diamonds"),
+    "Kimyogar": (6, "diamonds"),
+    "Yollanma qotil": (5, "diamonds"),
+    "Konchi": (5, "diamonds"),
+    "Admiral": (4, "diamonds"),
+    "Janob": (3, "diamonds"),
+    "Qaroqchi": (2, "diamonds"),
+    "G‘azabkor": (1, "diamonds"),
+    "Aferist": (1, "diamonds"),
+    "Tulki": (1, "diamonds"),
+    "Fotoparatchi": (1, "diamonds"),
+    "Robin Gud": (1000, "money"),
+    "Afsungar": (500, "money"),
+    "Bo‘ri": (500, "money"),
+    "Jurnalist": (500, "money"),
+    "Hamshira": (400, "money"),
+    "Rais": (400, "money"),
+    "Omadli": (250, "money"),
 }
