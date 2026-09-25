@@ -30,7 +30,6 @@ from utils.victory import game_over, winners
 TEAMS = [
     ("🤵🏻 Mafiya", {"Don","Mafia","Advokat","Ayg‘oqchi","Manipulyator","Ruhoniy","Undiruvchi"}),
     ("🕵🏻 Komissar", {"Komissar Katani","Serjant","Admiral"}),
-    ("🧑🏻‍⚕️ Shifokor", {"Shifokor","Hamshira"}),
 ]
 REVENGE_TIME = 20
 SEHRGAR_TIME = 10
@@ -127,13 +126,13 @@ async def seat_pairs(bot,g):
 
 
 async def para_followers(bot,g):
-    """Para mode: when one partner dies the other leaves too (unless the dead one was a Suidsid, Afsungar or G‘azabkor)."""
+    """Para mode: when one partner dies the other leaves too (unless the dead one was a Suidsid or Afsungar)."""
     if g.get("mode")!="para": return
     for a,b in g.get("pairs") or []:
         pa,pb=getp(g,a),getp(g,b)
         if not pa or not pb or pa["alive"]==pb["alive"]: continue
         dead,alive_one=(pa,pb) if not pa["alive"] else (pb,pa)
-        if dead["role"] in {"Suidsid","Afsungar","G‘azabkor"}: continue
+        if dead["role"] in {"Suidsid","Afsungar"}: continue
         kill_player(alive_one,"para")
         await bot.send_message(g["chat_id"],f"💔 {visible_mention(g,alive_one,True)} sherigi o‘lgani uchun o‘yindan chiqdi. U {role_label(alive_one['role'])} edi.",parse_mode=ParseMode.HTML)
 
@@ -158,7 +157,6 @@ async def start_night(app,g):
             p["max_hp"]=p.get("base_hp", 150 if p.get("role")=="Tabib" else 100)
             p["hp"]=min(p.get("hp",p["max_hp"]),p["max_hp"])
     g["next_ability_swaps"]={}
-    g["aferist"]={}
     night_time=settings_of(g)["night_time"]
     try: bot_username=(await app.bot.get_me()).username or ""
     except TelegramError: bot_username=""
@@ -262,7 +260,7 @@ async def start_day(app,g):
 
 
 # When a key role has no living holder, the first living successor takes it over.
-SUCCESSION = [("Komissar Katani",("Serjant","Admiral")),("Shifokor",("Hamshira",)),("Don",("Mafia",))]
+SUCCESSION = [("Komissar Katani",("Serjant","Admiral")),("Don",("Mafia",))]
 
 
 async def promote_successors(bot,g):
@@ -309,8 +307,8 @@ def vote_weight(p):
 
 
 def can_vote(g,p):
-    """Alive, awake (not put to sleep by Kezuvchi) and not fooled by the Aferist."""
-    return bool(p and p.get("alive") and not p.get("blocked") and str(p["id"]) not in (g.get("aferist") or {}))
+    """Alive and awake (not put to sleep by Kezuvchi)."""
+    return bool(p and p.get("alive") and not p.get("blocked"))
 
 
 async def start_voting(ctx):
@@ -323,8 +321,6 @@ async def start_voting(ctx):
     for p in living(g):
         if p.get("blocked"):
             await send_private(ctx.bot,p["id"],"💤 Kezuvchining dorisidan uxlab qoldingiz — bugun ovoz bera olmaysiz."); continue
-        if str(p["id"]) in (g.get("aferist") or {}):
-            await send_private(ctx.bot,p["id"],"🤹🏻 Aferist sizni aldadi: bugun u sizning nomingizdan ovoz beradi."); continue
         rows=[[InlineKeyboardButton(numbered_name(g,t)[:40],callback_data=f"vote:{g['id']}:{t['id']}")] for t in sorted(living(g),key=lambda x:x.get("num",0)) if t["id"]!=p["id"]]
         rows.append([InlineKeyboardButton("⏭ Ovoz bermaslik",callback_data=f"skip:{g['id']}")])
         await send_private(ctx.bot,p["id"],"🗳 <b>Kimni osamiz?</b>\nTanlang:",InlineKeyboardMarkup(rows))
@@ -422,7 +418,7 @@ async def take_along(app,g,target):
     afs=getp(g,g.get("revenge_by"))
     if not afs or not target or not target["alive"]: return
     kill_player(target,"afsungar")
-    if target["role"] in MAFIA or target["role"] in {"Qotil","Aferist"}: afs["won_flag"]=True
+    if target["role"] in MAFIA or target["role"]=="Qotil": afs["won_flag"]=True
     await app.bot.send_message(g["chat_id"],f"💣 Afsungar {visible_mention(g,target,True)}ni o‘zi bilan jahannamga olib ketdi! U {role_label(target['role'])} edi.",parse_mode=ParseMode.HTML)
     await offer_last_words(app.bot,g,[target])
 

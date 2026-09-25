@@ -24,7 +24,7 @@ PLAYER_DEFAULTS = {
     # Items bought in the market (set at game start), consumed when they fire.
     "killer_protection":False,"slip_protection":False,"medicine":False,
     # Role state brought over from Baku Mafia.
-    "won_flag":False,"gazab_picks":[],"robin_mistakes":0,"tulki_used":False,"pending_mode":None,
+    "won_flag":False,"tulki_used":False,"pending_mode":None,
     "kimyo_shield":None,"lab_shield":None,"action_cancelled":False,
 }
 

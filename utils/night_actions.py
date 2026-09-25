@@ -6,7 +6,7 @@ resolve_night_effects runs fixed stages, so the result never depends on player o
   3. actions: visits, checks, heals and shields, gifts, conversions (attacks are only collected)
   4. hero actions
   5. attacks in selection order, each through hit(): immunities, shields, items, HP
-  6. after-effects: G‘azabkor, Kamikaze, La’natchi, bounties, Joker cards, reports
+  6. after-effects: Konchi, Kamikaze, La’natchi, bounties, Joker cards, reports
 """
 
 import random
@@ -25,11 +25,10 @@ from utils.state import games, persist_games
 from utils.telegram_utils import send_private
 
 # Roles with nothing to do at night.
-PASSIVE_ROLES = {"Tinch axoli","Serjant","Suidsid","Kamikaze","Sehrgar","Afsungar","Omadli","Janob","Admiral","Hamshira","Bo‘ri"}
+PASSIVE_ROLES = {"Tinch axoli","Serjant","Suidsid","Kamikaze","Sehrgar","Afsungar","Omadli","Janob","Admiral","Bo‘ri"}
 # Roles that pick a mode before the target (callback amode:...).
 ACTION_MODES = {
     "Kimyogar": [("heal","💉 Davolash"),("kill","☠️ O‘ldirish")],
-    "Qaroqchi": [("pul","💵 Pulini olish"),("jon","👊 Do‘pposlash")],
     "Joker": [(str(n),f"🃏 {n}-karta") for n in range(1,5)],
 }
 KONCHI_KONS = ["dollar"]*5 + ["olmos"]*2 + ["o‘lim"]*3
@@ -56,16 +55,9 @@ NIGHT_PROMPTS = {
     "Qorbobo":"🎅 Bugun kimga sovg‘a beramiz? 🎁",
     "Qorbola":"🌨️ Bugun kimni Qorbo‘ron qilamiz?",
     "Tabib":"🩺 Bugun kimga dori qutisini beramiz?",
-    "Yollanma qotil":"🥷 Bugun kimni ovlaymiz?",
-    "Jurnalist":"👩🏼‍💻 Bugun kimdan intervyu olamiz?",
-    "Robin Gud":"🏹 Bugun kimni nishonga olamiz?",
-    "Fotoparatchi":"📸 Bugun kimni kuzatib rasmga olamiz?",
-    "Aferist":"🤹🏻 Bugun kimning ovozini o‘g‘irlaymiz?",
     "Rais":"🤑 Bugun kimga pul tarqatamiz?",
     "Tulki":"🦊 Kimning tarafiga o‘tamiz?",
-    "G‘azabkor":"🧌 Bugun kimni tanlaymiz? O‘zingizni tanlasangiz, tanlaganlaringiz bilan birga ketasiz.",
     "Kimyogar":"👨‍🔬 Kimni tanlaymiz?",
-    "Qaroqchi":"⚔️ Kimnikiga boramiz?",
     "Joker":"🤡 Kartalarni kimga yuboramiz?",
 }
 
@@ -123,7 +115,7 @@ async def offer_night_action(app,g,p):
         buttons=[InlineKeyboardButton(f"⛏ {n}",callback_data=f"kon:{g['id']}:{p['id']}:{n}") for n in sorted(kons,key=int)]
         rows=[buttons[i:i+5] for i in range(0,len(buttons),5)]
         await send_private(app.bot,p["id"],"👷🏻‍♂️ Qaysi konga tushamiz? Ba’zilarida 💵, ba’zilarida 💎, ba’zilarida o‘lim bor.",InlineKeyboardMarkup(rows)); return
-    await send_private(app.bot,p["id"],NIGHT_PROMPTS.get(r,"🎭 Bugun kimni tanlaymiz?"),name_buttons(g,"act",p["id"],allow_self=(r=="G‘azabkor")))
+    await send_private(app.bot,p["id"],NIGHT_PROMPTS.get(r,"🎭 Bugun kimni tanlaymiz?"),name_buttons(g,"act",p["id"]))
 
 
 def apply_protection(target, killer_role, actor=None):
@@ -259,7 +251,7 @@ async def resolve_night_effects(ctx,g):
             await bot.send_message(g["chat_id"],"🧠 Manipulyator boshqaruv jarayonida halok bo‘ldi.")
 
     # ---- 2. Minior mines ----
-    # Every visitor steps on the mine except the Minior, the owner, a plain Mafia and the Yollanma qotil (Baku rule).
+    # Every visitor steps on the mine except the Minior, the owner and a plain Mafia (Baku rule).
     mine_attacks=[]
     for minior in everyone:
         a=minior.get("action") or {}
@@ -267,13 +259,13 @@ async def resolve_night_effects(ctx,g):
         for v in everyone:
             va=v.get("action") or {}
             if v is minior or v["id"]==a["target"] or not v["alive"] or v.get("blocked"): continue
-            if va.get("target")!=a["target"] or ability_role(v) in {"Mafia","Yollanma qotil"}: continue
+            if va.get("target")!=a["target"] or ability_role(v)=="Mafia": continue
             v["action_cancelled"]=True
             mine_attacks.append((minior,v,"Minior"))
 
     # ---- 3. Actions ----
     attacks=[]; deaths=[]; late=[]  # late: reports that need every visit registered first
-    yollanma_caught=[]; gazab_triggered=[]; joker_cards=[]
+    joker_cards=[]
     for actor in list(living(g)):
         a=actor.get("action") or {}; typ=a.get("type"); target=getp(g,a.get("target")) if a.get("target") else None
         if actor["blocked"] or actor.get("action_cancelled"): continue
@@ -319,22 +311,8 @@ async def resolve_night_effects(ctx,g):
         elif er=="Labarant":
             if target["role"] in MAFIA: target["lab_shield"]=actor["id"]
             else: attacks.append((actor,target,"Labarant"))
-        elif er=="Yollanma qotil":
-            if target["role"]=="Komissar Katani": yollanma_caught.append((actor,target))
-            else: attacks.append((actor,target,"Yollanma qotil"))
-        elif er=="G‘azabkor":
-            if target["id"]==actor["id"]: gazab_triggered.append(actor)
-            elif target["id"] not in actor.setdefault("gazab_picks",[]): actor["gazab_picks"].append(target["id"])
         elif er=="Joker":
             joker_cards.append((actor,target,a.get("mode") or "1"))
-        elif er=="Qaroqchi":
-            price=random.choice([70,80,90,100])
-            row=get_user(target["id"])
-            if a.get("mode")=="pul" and row and int(row["money"] or 0)>=price and transfer(target["id"],actor["id"],"money",price):
-                await send_private(bot,actor["id"],f"⚔️ Siz {visible_name(g,target)}dan {price}💷 oldingiz!")
-                await send_private(bot,target["id"],f"⚔️ Qaroqchi sizdan {price}💷 olib ketdi.")
-            else:
-                attacks.append((actor,target,"Qaroqchi"))
         elif er=="Rais":
             amount=random.randint(1,100)
             field,sign=("diamonds","💎") if amount<=2 else ("money","💷")
@@ -345,8 +323,6 @@ async def resolve_night_effects(ctx,g):
             new_role="Serjant" if target["role"] in TOWN else "Mafia" if target["role"] in MAFIA else "Qotil"
             actor["role"]=new_role; actor["tulki_used"]=True
             await send_private(bot,actor["id"],f"🦊 Siz endi {role_label(new_role)}siz!")
-        elif er=="Aferist":
-            g.setdefault("aferist",{})[str(target["id"])]=actor["id"]
         elif er=="Undiruvchi":
             # Fictional in-game money action.
             row=get_user(target["id"])
@@ -379,7 +355,7 @@ async def resolve_night_effects(ctx,g):
                 if not target.get("fake_document"):
                     await bot.send_message(g["chat_id"],f"🦎 Sotqin [ {mention(target)} ]ning yovuz/harmli ekanini aniqladi. {role_label(target['role'])}",parse_mode=ParseMode.HTML)
             else: await bot.send_message(g["chat_id"],"🦎 Sotqinning izlanishlari bekor ketdi.")
-        elif er in {"Daydi","Jurnalist","Fotoparatchi"}:
+        elif er=="Daydi":
             late.append((actor,target))
 
     # ---- 4. Hero actions (independent of role/faction) ----
@@ -445,7 +421,7 @@ async def resolve_night_effects(ctx,g):
             await bot.send_message(g["chat_id"],f"🐺 Bo‘ri {role_label(target['role'])}ga aylandi!")
             await send_private(bot,target["id"],f"🐺 Siz endi {role_label(target['role'])}siz!")
             return False
-        if kr in {"Qotil","Yollanma qotil"} and target.get("killer_protection") and consume_inventory(target,"killer_protection"):
+        if kr=="Qotil" and target.get("killer_protection") and consume_inventory(target,"killer_protection"):
             target["killer_protection"]=inv(target["id"]).get("killer_protection",0)>0
             await send_private(bot,target["id"],"⛑️ Qotildan himoya sizni saqlab qoldi!")
             await bot.send_message(g["chat_id"],"💫 Kimningdir qotildan himoyasi ishladi!")
@@ -454,13 +430,11 @@ async def resolve_night_effects(ctx,g):
             if apply_protection(target,kr,actor):
                 await send_private(bot,target["id"],f"🛡 Sizning uyingizga {role_label(kr)} hujum qildi, ammo himoya sizni saqlab qoldi.")
                 return False
-        # Snayper, Yollanma qotil and the Professor's box against Kamikaze ignore heals.
-        instant=kr in {"Snayper","Yollanma qotil"} or (kr=="Professor" and target["role"]=="Kamikaze")
+        # Snayper and the Professor's box against Kamikaze ignore heals.
+        instant=kr=="Snayper" or (kr=="Professor" and target["role"]=="Kamikaze")
         if not instant:
-            target["hp"]-=50 if kr=="Qaroqchi" else 100
-            if target["hp"]>0:
-                if kr=="Qaroqchi": await send_private(bot,target["id"],f"⚔️ Qaroqchi sizni do‘pposladi. Qolgan HP: {target['hp']}%.")
-                return False
+            target["hp"]-=100
+            if target["hp"]>0: return False
         if target["role"]=="Omadli" and random.random()<0.85:
             target["hp"]=max(target["hp"],1)
             await bot.send_message(g["chat_id"],"💫 Kimningdir omadi keldi va omon qoldi!")
@@ -471,19 +445,10 @@ async def resolve_night_effects(ctx,g):
             kill_player(actor); deaths.append((actor,target,"Afsungar"))
             if actor["role"] in MAFIA or actor["role"] in {"Qotil","Kimyogar"}: target["won_flag"]=True
         if kr=="Minior": actor["won_flag"]=True
-        if kr=="Robin Gud" and target["role"] in TOWN:
-            actor["robin_mistakes"]=actor.get("robin_mistakes",0)+1
-            if actor["robin_mistakes"]>=2 and actor["alive"]:
-                kill_player(actor); deaths.append((actor,None,None))
-                await bot.send_message(g["chat_id"],f"🏹 Robin Gud {mention(actor)} ikkinchi marta tinch aholiga hujum qildi va xatosini kechira olmay o‘z joniga qasd qildi.",parse_mode=ParseMode.HTML)
         return True
 
     for minior,visitor,kr in mine_attacks:
         await hit(minior,visitor,kr)
-    for komissar_victim in yollanma_caught:
-        actor,komissar=komissar_victim
-        if actor["alive"]:
-            kill_player(actor); deaths.append((actor,komissar,"Komissar Katani"))
     # All night attacks resolve together, ordered only by immutable selection time.
     attacks.sort(key=lambda item: (item[0].get("action") or {}).get("selected_at", float("inf")))
     for actor,target,kr in attacks:
@@ -492,16 +457,6 @@ async def resolve_night_effects(ctx,g):
     pending_afsungar = [af for af in g["players"].values() if af.get("afsungar_decisions")]
 
     # ---- 6. After-effects ----
-    for gz in gazab_triggered:
-        if not gz["alive"]: continue
-        killed=0
-        for pid in gz.get("gazab_picks",[]):
-            pick=getp(g,pid)
-            if pick and await hit(gz,pick,"G‘azabkor"): killed+=1
-        kill_player(gz); deaths.append((gz,None,None))
-        if killed>=2: gz["won_flag"]=True
-        await bot.send_message(g["chat_id"],f"🧌 G‘azabkor o‘zini tanladi va tanlaganlaridan {killed} tasini o‘zi bilan olib ketdi!")
-
     # Konchi goes down a mine he picked.
     for actor,_ in [x for x in late if x[1] is None]:
         n=str((actor.get("action") or {}).get("kon"))
@@ -559,13 +514,11 @@ async def resolve_night_effects(ctx,g):
     # Joker's cards: the target must pick one before the next night.
     for joker,target,card in joker_cards:
         if not target["alive"]: continue
-        if target["role"]=="Yollanma qotil":
-            await send_private(bot,joker["id"],"🤡 Nishoningiz kartalarga qaramadi ham..."); continue
         g.setdefault("joker_cards",{})[str(target["id"])]={"joker":joker["id"],"death":str(card)}
         rows=[[InlineKeyboardButton(f"🃏 {n}",callback_data=f"card:{g['id']}:{target['id']}:{n}") for n in range(1,5)]]
         await send_private(bot,target["id"],"🤡🎈 Joker seni tanladi! Kechgacha bitta kartani tanla — omading kulsa yashaysan, tanlamasang o‘lasan!",InlineKeyboardMarkup(rows))
 
-    # Reports that need every visit: Daydi, Jurnalist, Fotoparatchi.
+    # Daydi's report needs every visit registered first.
     for actor,target in [x for x in late if x[1] is not None]:
         er=ability_role(actor)
         if er=="Daydi":
@@ -576,23 +529,6 @@ async def resolve_night_effects(ctx,g):
             else:
                 text="🌙 Siz "+mention(target)+"ning derazasidan kuzatdingiz.\n\nKelganlar:\n"+"\n".join(shown)
             await send_private(bot,actor["id"],text)
-        elif er=="Jurnalist":
-            visitors=[getp(g,x) for x in target["visits"] if getp(g,x) and x not in {target["id"],actor["id"]}]
-            shown=[] if target["role"]=="Komissar Katani" else ["maskali" if v.get("mask") else f"{visible_name(g,v)} — {role_label(v['role'])}" for v in visitors if v["role"] not in {"Don","Mafia"}]
-            if shown:
-                text=f"👩🏼‍💻 {visible_name(g,target)}dan intervyu oldim, unikiga kelganlar: "+", ".join(shown)
-                await send_private(bot,actor["id"],text)
-                for don in _alive_with_roles(g,{"Don"}):
-                    await send_private(bot,don["id"],"📬 Jurnalistdan xat:\n\n"+text)
-            else:
-                await send_private(bot,actor["id"],f"👩🏼‍💻 {visible_name(g,target)}dan intervyu oldingiz, ammo hech kimni aniqlay olmadingiz.")
-        elif er=="Fotoparatchi":
-            ta=target.get("action") or {}
-            went=getp(g,ta.get("target")) if ta.get("target") and not target.get("blocked") else None
-            if went and went["id"]!=target["id"] and target["role"]!="Mafia":
-                await send_private(bot,actor["id"],f"📸 {visible_name(g,target)} tunda {visible_name(g,went)}nikiga borganini rasmga oldingiz!")
-            else:
-                await send_private(bot,actor["id"],f"📸 Afsuski, {visible_name(g,target)} bugun hech kimnikiga bormadi.")
 
     # Every attacked player hears who came; healers hear whether their patient made it.
     for victim in g["players"].values():
@@ -604,8 +540,6 @@ async def resolve_night_effects(ctx,g):
             if doc.get("blocked") or da.get("target")!=victim["id"]: continue
             text=f"🩺 Davolash natijasi: {visible_name(g,victim,True)} — {'saqlandi' if victim.get('alive') else 'saqlanmadi'}."
             await send_private(bot,doc["id"],text)
-            for nurse in _alive_with_roles(g,{"Hamshira"}):
-                await send_private(bot,nurse["id"],"👩🏻‍⚕️ Shifokordan: "+text)
     for owner_id,target,kr in shield_saves:
         owner=getp(g,owner_id)
         if owner: await send_private(bot,owner["id"],f"🛡 Siz {visible_name(g,target,True)}ni {role_label(kr)} hujumidan qutqardingiz!")

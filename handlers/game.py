@@ -185,14 +185,12 @@ async def cb_action(update,ctx):
     if not p or not t or not p["alive"] or not t["alive"]: return await cb_answer(q,"O‘yinchi endi mavjud emas.",True)
     if p["action"] is not None: return await cb_answer(q,"Tanlovingiz allaqachon tasdiqlangan.",True)
     r=ability_role(p)
-    if r not in NIGHT_PROMPTS or (t["id"]==p["id"] and r!="G‘azabkor"): return await cb_answer(q,"Bu tanlov siz uchun emas.",True)
+    if r not in NIGHT_PROMPTS or t["id"]==p["id"]: return await cb_answer(q,"Bu tanlov siz uchun emas.",True)
     if r=="Manipulyator":
         rows=[[InlineKeyboardButton(visible_name(g,x)[:32],callback_data=f"manip2:{gid}:{actor}:{x['id']}")] for x in living(g) if x["id"] not in {p["id"],t["id"]}]
         p["action"]={"type":"manipulator","controlled":t["id"],"selected_at":time.time()}
         await safe_edit(q,"🪄 Endi harakatni kimga yo‘naltiramiz?",InlineKeyboardMarkup(rows))
         persist_games(); return await cb_answer(q,"Birinchi tanlov saqlandi.")
-    if r=="G‘azabkor" and t["id"]!=p["id"] and t["id"] in p.get("gazab_picks",[]):
-        return await cb_answer(q,"Bu o‘yinchini allaqachon tanlagansiz.",True)
     if r in ACTION_MODES and not p.get("pending_mode"):
         return await cb_answer(q,"Avval harakat turini tanlang.",True)
     p["action"]={"type":"target","target":t["id"],"selected_at":time.time(),"mode":p.pop("pending_mode",None)}
@@ -314,13 +312,10 @@ async def cb_vote(update,ctx):
     t=getp(g,target) if typ=="vote" else None
     if typ=="vote" and (not t or not t["alive"]):return await cb_answer(q,"Nishon mavjud emas.",True)
     if t and t["id"]==voter["id"]:return await cb_answer(q,"O‘zingizga ovoz bera olmaysiz.",True)
-    # The Aferist also casts the vote of the player he fooled last night.
-    fooled=[getp(g,int(v)) for v,aid in (g.get("aferist") or {}).items() if aid==voter["id"]]
-    for voice in [voter]+[f for f in fooled if f and f["alive"] and str(f["id"]) not in g["votes"]]:
-        g["votes"][str(voice["id"])]=t["id"] if t else None
-        text=f"🗳 {_vote_voice(g,voice)} ➡️ {visible_mention(g,t)}ga ovoz berdi." if t else f"🗳 {_vote_voice(g,voice)} ovoz bermaslikni tanladi."
-        try: await ctx.bot.send_message(g["chat_id"],text,parse_mode=ParseMode.HTML)
-        except TelegramError: pass
+    g["votes"][str(voter["id"])]=t["id"] if t else None
+    text=f"🗳 {_vote_voice(g,voter)} ➡️ {visible_mention(g,t)}ga ovoz berdi." if t else f"🗳 {_vote_voice(g,voter)} ovoz bermaslikni tanladi."
+    try: await ctx.bot.send_message(g["chat_id"],text,parse_mode=ParseMode.HTML)
+    except TelegramError: pass
     persist_games()
     await safe_edit(q,f"🗳 Sizning ovozingiz: {visible_name(g,t)}" if t else "⏭ Ovoz bermaslik tanlandi.",None)
     await cb_answer(q,"Ovoz qabul qilindi.")
@@ -446,7 +441,7 @@ async def cmd_tep(update,ctx):
 
 
 async def cb_amode(update,ctx):
-    """Kimyogar / Qaroqchi / Joker pick what to do before choosing the target."""
+    """Kimyogar / Joker pick what to do before choosing the target."""
     q=update.callback_query; parts=q.data.split(":")
     if len(parts)!=4: return await cb_answer(q,"Bu tanlov mavjud emas.",True)
     _,gid,uid,mode=parts; g=find_game(gid)

@@ -28,8 +28,8 @@ def role_balance(n):
     if solo<0: solo=0; town=n-mafia
     # Guarantee the main information role at normal sizes.
     town_roles=["Komissar Katani","Shifokor","Daydi","Kezuvchi","Serjant","Koldun","Sotqin","Folbin","Zodagon","Tinch axoli","Kamikaze",
-                "Hamshira","Admiral","Omadli","Janob","Robin Gud","Fotoparatchi"]
-    mafia_roles=["Don","Mafia","Advokat","Ayg‘oqchi","Labarant","Manipulyator","Ruhoniy","Undiruvchi","Yollanma qotil","Jurnalist"]
+                "Admiral","Omadli","Janob"]
+    mafia_roles=["Don","Mafia","Advokat","Ayg‘oqchi","Labarant","Manipulyator","Ruhoniy","Undiruvchi"]
     solo_roles=[r for r in ROLES if r not in TOWN and r not in MAFIA]
     out=[]
     if n>=4:

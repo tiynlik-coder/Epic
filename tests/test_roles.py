@@ -77,14 +77,6 @@ class NightRoleTests(unittest.TestCase):
         g = game("Bo‘ri", "Komissar Katani", base=1020); g["players"][1021]["action"] = {"type": "kill", "target": 1020, "selected_at": 0}; night(g)
         self.assertEqual(g["players"][1020]["role"], "Serjant")
 
-    def test_hitman(self):
-        g = game("Yollanma qotil", "Komissar Katani"); act(g, 1000, 1001); night(g)
-        self.assertFalse(alive(g, 1000)); self.assertTrue(alive(g, 1001))
-        g = game("Yollanma qotil", "Tinch axoli", "Shifokor", base=1030); act(g, 1030, 1031); act(g, 1032, 1031); night(g)
-        self.assertFalse(alive(g, 1031))  # heals do not stop the hitman
-        g = game("Yollanma qotil", "Don", base=1040); act(g, 1041, 1040); night(g)
-        self.assertTrue(alive(g, 1040))   # nobody kills him at night
-
     def test_admiral_is_immune(self):
         g = game("Admiral", "Don"); act(g, 1001, 1000); night(g)
         self.assertTrue(alive(g, 1000))
@@ -93,29 +85,6 @@ class NightRoleTests(unittest.TestCase):
         g = game("Afsungar", "Don"); act(g, 1001, 1000); night(g)
         self.assertFalse(alive(g, 1000)); self.assertFalse(alive(g, 1001))
         self.assertTrue(g["players"][1000]["won_flag"])
-
-    def test_robin_dies_after_second_town_kill(self):
-        g = game("Robin Gud", "Tinch axoli", "Tinch axoli")
-        g["players"][1000]["robin_mistakes"] = 1; act(g, 1000, 1001); night(g)
-        self.assertFalse(alive(g, 1001)); self.assertFalse(alive(g, 1000))
-
-    def test_gazabkor_takes_picks(self):
-        g = game("G‘azabkor", "Tinch axoli", "Tinch axoli")
-        g["players"][1000]["gazab_picks"] = [1001, 1002]; act(g, 1000, 1000); night(g)
-        self.assertEqual([alive(g, i) for i in (1000, 1001, 1002)], [False, False, False])
-        self.assertTrue(g["players"][1000]["won_flag"])
-
-    def test_robber_beats_without_money(self):
-        g = game("Qaroqchi", "Tinch axoli")
-        con = db(); con.execute("UPDATE users SET money=0 WHERE user_id=1001"); con.commit(); con.close()
-        act(g, 1000, 1001, "pul"); night(g)
-        self.assertTrue(alive(g, 1001)); self.assertEqual(g["players"][1001]["hp"], 50)
-
-    def test_robber_takes_money(self):
-        g = game("Qaroqchi", "Tinch axoli", base=1050)
-        con = db(); con.execute("UPDATE users SET money=500 WHERE user_id IN (1050,1051)"); con.commit(); con.close()
-        act(g, 1050, 1051, "pul"); night(g)
-        self.assertLess(get_user(1051)["money"], 500); self.assertEqual(get_user(1050)["money"] + get_user(1051)["money"], 1000)
 
     def test_lucky_survives(self):
         g = game("Omadli", "Don"); act(g, 1001, 1000)
@@ -186,10 +155,10 @@ class GameFlowTests(unittest.TestCase):
 
     def test_successors_take_over(self):
         from utils.game_logic import promote_successors
-        g = game("Komissar Katani", "Admiral", "Shifokor", "Hamshira", "Don", "Mafia", base=1100)
-        for dead in (1100, 1102, 1104): g["players"][dead]["alive"] = False
+        g = game("Komissar Katani", "Admiral", "Don", "Mafia", base=1100)
+        for dead in (1100, 1102): g["players"][dead]["alive"] = False
         asyncio.run(promote_successors(Bot(), g))
-        self.assertEqual([g["players"][i]["role"] for i in (1101, 1103, 1105)], ["Komissar Katani", "Shifokor", "Don"])
+        self.assertEqual([g["players"][i]["role"] for i in (1101, 1103)], ["Komissar Katani", "Don"])
 
     def test_conditional_solo_wins_dead(self):
         from utils.victory import winners
