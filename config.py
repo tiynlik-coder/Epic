@@ -139,10 +139,6 @@ CURRENCY_SIGN = {"money": "💷", "diamonds": "💎", "coins": "🪙"}
 MONEY_PACKS = [(250, 1), (500, 2), (750, 3), (1000, 4), (5000, 18), (10000, 30)]
 # 💎 bought with Telegram Stars: diamonds -> stars
 STAR_PACKS = {1: 7, 10: 70, 30: 200, 70: 450, 250: 1300, 1000: 5000}
-# 💎 bought by card through MirPay: diamonds -> so'm (only when MIRPAY_* is set in .env)
-CARD_PACKS = {1: 1275, 10: 12750, 30: 37400, 70: 84830, 250: 250750, 1000: 952000}
-MIRPAY_KASSA_ID = os.getenv("MIRPAY_KASSA_ID", "").strip()
-MIRPAY_API_KEY = os.getenv("MIRPAY_API_KEY", "").strip()
 # Where large purchases/transfers are reported (a group id). Empty = no reports.
 REPORT_CHAT_ID = int(os.getenv("REPORT_CHAT_ID")) if os.getenv("REPORT_CHAT_ID", "").lstrip("-").isdigit() else None
 # @username or link of whoever sells diamonds by card manually. Empty = no button.

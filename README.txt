@@ -30,7 +30,7 @@ Epic/
 │   ├── game.py             493  ← o'yin buyruqlari, tungi harakat, ovoz, 👍/👎, /leave, /tep
 │   ├── game_chat.py         56  ← so'nggi so'z, tungi jamoa chati, guruhda yozish qoidasi
 │   ├── settings.py         134  ← /settings: guruh sozlamalari menyusi
-│   ├── economy.py          424  ← o'tkazmalar, giveaway, lotereya, sandiq, VIP, to'lovlar
+│   ├── economy.py          424  ← o'tkazmalar, giveaway, lotereya, sandiq, VIP, Stars to'lovi
 │   ├── stats.py             79  ← /top, /gtop, /boylar, reyting
 │   ├── pairs.py             49  ← /para, /mypara, /dpara
 │   ├── other_handlers.py   170  ← /start, profil, do'kon, menyu
@@ -58,7 +58,6 @@ Epic/
 │   ├── permissions.py       35  ← guruh adminlari (kesh), ruxsat darajalari
 │   ├── state.py            106  ← xotiradagi o'yinlar, Redis/JSON'ga saqlash, taymerlar
 │   ├── game_loop.py         52  ← restartdan keyin taymerlarni tiklash
-│   ├── mirpay.py            49  ← MirPay karta to'lovi
 │   ├── players.py, profile.py, texts.py, telegram_utils.py, maintenance.py
 │
 ├── keyboards/                   ← tugmalar

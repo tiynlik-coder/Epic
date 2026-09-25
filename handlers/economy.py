@@ -1,7 +1,7 @@
 """Economy commands and buttons.
 
 Transfers (/money, /give, /sgive), group balance (/gsend, /ginfo), giveaways (/send, /ghimoya, ...),
-the diamond lottery (/change), chests, VIP, buying diamonds (Telegram Stars, MirPay) and money,
+the diamond lottery (/change), chests, VIP, buying diamonds (Telegram Stars) and money,
 item switches, profile swap and hero transfer (/tgeroy).
 
 Amounts and prices always come from config or the database, never from callback data.
@@ -15,7 +15,7 @@ from telegram.constants import ChatType, ParseMode
 from telegram.error import TelegramError
 from telegram.ext import ApplicationHandlerStop
 
-from config import (CARD_PACKS, CHEST_COOLDOWN_DAYS, CURRENCY_SIGN, DIAMOND_SELLER_URL, MEGA_CHEST_PRICE, MONEY_PACKS,
+from config import (CHEST_COOLDOWN_DAYS, CURRENCY_SIGN, DIAMOND_SELLER_URL, MEGA_CHEST_PRICE, MONEY_PACKS,
                     PROFILE_SWAP_PRICE, REPORT_CHAT_ID, SHOP_ITEMS, STAR_PACKS, SUPER_CHEST_PRICE, TRANSFER_FEE_MONEY,
                     VIP_DAYS, VIP_PRICE, is_bot_admin)
 from models import economy
@@ -23,7 +23,6 @@ from models.chat_settings import get_settings
 from models.database import db
 from models.heroes import hero_row
 from models.users import add_balance, ensure_user, get_user, spend, transfer
-from utils import mirpay
 from utils.telegram_utils import cb_answer, safe_edit
 
 GIVEAWAY_ITEMS = {"send":"diamonds","ghimoya":"protection","gqotil":"killer_protection","govoz":"hanging_protection",
@@ -248,9 +247,6 @@ def diamonds_menu():
     rows=[]
     stars=[InlineKeyboardButton(f"{d}💎 — ⭐️{s}",callback_data=f"eco:stars:{d}") for d,s in STAR_PACKS.items()]
     rows+=[stars[i:i+2] for i in range(0,len(stars),2)]
-    if mirpay.enabled():
-        card=[InlineKeyboardButton(f"{d}💎 — {s:,} so‘m",callback_data=f"eco:card:{d}") for d,s in CARD_PACKS.items()]
-        rows+=[card[i:i+2] for i in range(0,len(card),2)]
     if DIAMOND_SELLER_URL: rows.append([InlineKeyboardButton("💳 Admin orqali sotib olish",url=DIAMOND_SELLER_URL)])
     return InlineKeyboardMarkup(rows+[_back()])
 
@@ -275,21 +271,6 @@ async def cb_eco(update, ctx):
         d=int(arg)
         await ctx.bot.send_invoice(uid,title=f"💎 {d} olmos",description=f"Epic Mafia: {d} ta olmos",payload=f"stars:{d}",
                                    provider_token="",currency="XTR",prices=[LabeledPrice(f"{d} 💎",STAR_PACKS[d])])
-    elif action=="card" and arg.isdigit() and int(arg) in CARD_PACKS and mirpay.enabled():
-        d=int(arg); summa=CARD_PACKS[d]
-        invoice,url=await mirpay.create_payment(summa,f"Epic Mafia: {d} olmos")
-        if not invoice or not url: return await cb_answer(q,"❌ To‘lov yaratilmadi, keyinroq urinib ko‘ring.",True)
-        economy.record_payment(invoice,uid,"mirpay",d,summa)
-        kb=InlineKeyboardMarkup([[InlineKeyboardButton("💳 To‘lash",url=url)],[InlineKeyboardButton("✅ To‘lovni tekshirish",callback_data=f"eco:check:{invoice}")],_back("eco:diamonds")])
-        await safe_edit(q,f"💳 {d} 💎 uchun {summa:,} so‘m.\n\nTo‘lang, keyin «To‘lovni tekshirish»ni bosing.",kb)
-    elif action=="check" and arg:
-        pay=economy.get_payment(arg)
-        if not pay or pay["user_id"]!=uid: return await cb_answer(q,"❌ To‘lov topilmadi.",True)
-        if pay["status"]=="paid": return await cb_answer(q,"✅ Bu to‘lov allaqachon hisoblangan.",True)
-        if not await mirpay.is_paid(arg,pay["amount"]): return await cb_answer(q,"❗ To‘lov hali tasdiqlanmagan.",True)
-        if economy.complete_payment(arg):
-            await safe_edit(q,f"✅ To‘lov tasdiqlandi! Sizga {pay['diamonds']} 💎 berildi.",None)
-            await report(ctx.bot,f"💳 {html.escape(q.from_user.full_name)} ({uid}) kartadan {pay['diamonds']}💎 sotib oldi ({pay['amount']:,} so‘m).")
     elif action=="money":
         rows=[[InlineKeyboardButton(f"{m}💷 — {d}💎",callback_data=f"eco:mpack:{i}")] for i,(m,d) in enumerate(MONEY_PACKS)]
         await safe_edit(q,"💷 <b>Olmos evaziga pul</b>",InlineKeyboardMarkup(rows+[_back()]))

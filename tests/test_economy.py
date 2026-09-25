@@ -50,7 +50,7 @@ class EconomyTests(unittest.TestCase):
 
     def test_payment_credits_stored_amount_once(self):
         fresh(5021)
-        economy.record_payment("inv-1", 5021, "mirpay", 10, 12750)
+        economy.record_payment("inv-1", 5021, "stars", 10, 70)
         self.assertIsNotNone(economy.complete_payment("inv-1"))
         self.assertIsNone(economy.complete_payment("inv-1"))
         self.assertIsNone(economy.complete_payment("inv-unknown"))
