@@ -3,7 +3,7 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from config import VS_TEAM_COLORS
-from utils.players import living, visible_name
+from utils.players import living, numbered_name
 
 
 def lobby_markup(g, bot_username=None):
@@ -19,9 +19,9 @@ def lobby_markup(g, bot_username=None):
 
 def name_buttons(g, prefix, uid, allow_self=False):
     rows=[]
-    for p in living(g):
+    for p in sorted(living(g),key=lambda x:x.get("num",0)):
         if not allow_self and p["id"]==uid: continue
-        rows.append([InlineKeyboardButton(visible_name(g,p)[:32],callback_data=f"{prefix}:{g['id']}:{uid}:{p['id']}")])
+        rows.append([InlineKeyboardButton(numbered_name(g,p)[:40],callback_data=f"{prefix}:{g['id']}:{uid}:{p['id']}")])
     return InlineKeyboardMarkup(rows)
 
 

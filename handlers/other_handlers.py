@@ -7,14 +7,16 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ChatType, ParseMode
 from telegram.ext import ContextTypes
 
-from config import is_bot_admin, ADMIN_ACTIVE_ROLE_PRICES, EPIC_CHANNEL_URL, EPIC_SUPPORT_URL, HERO_PROTECTION_PRICE, MIN_PLAYERS, ROLES
+from config import ADMIN_ACTIVE_ROLE_PRICES, EPIC_CHANNEL_URL, EPIC_SUPPORT_URL, HERO_PROTECTION_PRICE, MIN_PLAYERS, ROLES
 from handlers.geroy_handlers import show_hero
 from keyboards.main_keyboard import main_menu
 from keyboards.user_keyboards import active_role_market_markup, market_keyboard, profile_markup, roles_menu_markup
+from models.chat_settings import get_settings
 from models.database import db
 from models.users import buy, ensure_user, grant_first_start, spend
 from utils.game_logic import start_game
 from utils.lobby import join_lobby_deeplink, join_vs_deeplink
+from utils.permissions import has_perm
 from utils.profile import active_role_text, build_profile_text
 from utils.state import games
 from utils.telegram_utils import cb_answer, safe_edit
@@ -31,10 +33,8 @@ async def cmd_start(update:Update,ctx:ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type in {ChatType.GROUP,ChatType.SUPERGROUP}:
         g=games.get(update.effective_chat.id)
         if g and g.get("phase")=="lobby":
-            if not is_bot_admin(update.effective_user.id):
-                member=await ctx.bot.get_chat_member(update.effective_chat.id,update.effective_user.id)
-                if member.status not in {"administrator","creator"}:
-                    return await update.message.reply_text("❌ O‘yinni faqat guruh adminlari boshlay oladi.")
+            if not await has_perm(ctx.bot,update.effective_chat.id,update.effective_user.id,get_settings(update.effective_chat.id)["perm_start"]):
+                return await update.message.reply_text("❌ Sizda o‘yinni boshlash huquqi yo‘q.")
             n=len(g.get("players",{}))
             if n>=MIN_PLAYERS:
                 if g.get("mode")=="vs":

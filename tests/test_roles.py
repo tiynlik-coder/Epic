@@ -165,6 +165,10 @@ class FakeBot(Bot):
         super().__init__(); self.markups = []
     async def send_message(self, chat_id, text, **k):
         self.sent.append((chat_id, text)); self.markups.append(k.get("reply_markup"))
+        class Msg: message_id = len(self.sent)
+        return Msg()
+
+    async def delete_message(self, *a, **k): pass
     async def send_photo(self, chat_id, photo, **k): pass
     async def unpin_chat_message(self, **k): pass
     async def get_me(self):

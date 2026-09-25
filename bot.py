@@ -23,6 +23,7 @@ async def setup_bot_commands(app):
     private_cmds = [
         BotCommand("start", "Botni qayta ishga tushirish"),
         BotCommand("profile", "Profilni ko‘rish"),
+        BotCommand("leave", "O‘yindan chiqish"),
     ]
     await app.bot.set_my_commands(private_cmds, scope=BotCommandScopeAllPrivateChats())
     for admin_id in ADMIN_IDS:
@@ -47,6 +48,8 @@ async def setup_bot_commands(app):
         BotCommand("bounty", "Bounty qo‘yish"),
         BotCommand("modes", "Mode tanlash"),
         BotCommand("stop", "O‘yinni to‘xtatish"),
+        BotCommand("leave", "O‘yindan chiqish"),
+        BotCommand("settings", "O‘yin sozlamalari (adminlar)"),
     ]
     await app.bot.set_my_commands(group_commands, scope=BotCommandScopeAllGroupChats())
 

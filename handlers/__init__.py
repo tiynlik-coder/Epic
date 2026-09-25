@@ -14,6 +14,10 @@ from .other_handlers import (
 from .game import (
     cb_action,
     cb_af,
+    cb_afs,
+    cb_hang,
+    cmd_leave,
+    cmd_tep,
     cb_amode,
     cb_card,
     cb_kon,
@@ -86,6 +90,14 @@ from .geroy_handlers import (
     hero_callback,
     hero_private_text,
 )
+from .game_chat import (
+    group_write_guard,
+    private_game_text,
+)
+from .settings import (
+    cb_settings,
+    cmd_settings,
+)
 from .errors import (
     error_handler,
 )
@@ -93,6 +105,10 @@ from middlewares.block_guard import (
     admin_guard_callback,
     admin_guard_message,
 )
+
+
+async def ignore_button(update, ctx):
+    await update.callback_query.answer()
 
 
 def register_handlers(app):
@@ -107,12 +123,17 @@ def register_handlers(app):
     app.add_handler(CommandHandler("bounty",cmd_bounty))
     app.add_handler(CommandHandler("modes",cmd_modes))
     app.add_handler(CommandHandler("stop",cmd_stop))
+    app.add_handler(CommandHandler("leave",cmd_leave))
+    app.add_handler(CommandHandler(["settings","sozlamalar"],cmd_settings))
+    app.add_handler(CommandHandler("tep",cmd_tep))
     app.add_handler(CommandHandler("profile",cmd_profile))
     app.add_handler(CommandHandler("market",cmd_market))
     app.add_handler(CommandHandler("admin",cmd_admin))
     # Admin panel callbacks and hard block guards run before normal handlers.
     app.add_handler(MessageHandler(filters.ALL, admin_guard_message), group=-100)
     app.add_handler(CallbackQueryHandler(admin_guard_callback), group=-100)
+    # During a game, messages the chat's write rule forbids are deleted before anything else sees them.
+    app.add_handler(MessageHandler(filters.ChatType.GROUPS & ~filters.COMMAND, group_write_guard), group=-90)
     app.add_handler(CommandHandler("aktiv",cmd_aktiv))
     app.add_handler(CommandHandler("unaktiv",cmd_unaktiv))
     app.add_handler(CommandHandler("block",cmd_block))
@@ -168,6 +189,10 @@ def register_handlers(app):
     app.add_handler(CallbackQueryHandler(cb_amode,r"^amode:"))
     app.add_handler(CallbackQueryHandler(cb_kon,r"^kon:"))
     app.add_handler(CallbackQueryHandler(cb_card,r"^card:"))
+    app.add_handler(CallbackQueryHandler(cb_hang,r"^hang:"))
+    app.add_handler(CallbackQueryHandler(cb_afs,r"^afs:"))
+    app.add_handler(CallbackQueryHandler(cb_settings,r"^cset:"))
+    app.add_handler(CallbackQueryHandler(ignore_button,r"^ignore$"))
     app.add_handler(CallbackQueryHandler(cb_res,r"^res:"))
     app.add_handler(CallbackQueryHandler(cb_zombie,r"^zombie:"))
     app.add_handler(CallbackQueryHandler(cb_katani_mode,r"^katani_mode:"))
@@ -183,6 +208,7 @@ def register_handlers(app):
     app.add_handler(CallbackQueryHandler(cb_buy,r"^buy:"))
     app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE & ~filters.COMMAND, admin_text_handler), group=1)
     app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE & ~filters.COMMAND, hero_private_text), group=2)
+    app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE & ~filters.COMMAND, private_game_text), group=3)
     app.add_handler(CallbackQueryHandler(cb_vote,r"^(vote|skip):"))
     app.add_handler(CallbackQueryHandler(cb_af,r"^af:"))
     app.add_handler(CallbackQueryHandler(cb_folbin_msg,r"^(read_f|cancel_f):"))

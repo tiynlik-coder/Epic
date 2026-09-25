@@ -82,6 +82,11 @@ def visible_name(g, p, reveal=False):
     return base
 
 
+def numbered_name(g, p):
+    """"3. Ali" — the in-game number (used by /tep and in lists) plus the visible name."""
+    return f"{p['num']}. {visible_name(g,p)}" if p.get("num") else visible_name(g,p)
+
+
 def visible_mention(g, p, reveal=False):
     if g.get("mode") == "name" and not reveal:
         base = html.escape(str(visible_name(g,p,reveal)))

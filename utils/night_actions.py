@@ -70,6 +70,15 @@ NIGHT_PROMPTS = {
 }
 
 
+def expects_action(g, p):
+    """Does this player have a night action to use tonight? (for the idle-player rule)"""
+    r=ability_role(p)
+    if r in PASSIVE_ROLES or (r=="Tulki" and p.get("tulki_used")): return False
+    if r=="Ruhoniy": return bool(dead_targets(g))
+    if r=="Zombi": return g.get("mode")=="zombie"
+    return r in NIGHT_PROMPTS or r in ACTION_MODES or r in {"Komissar Katani","Professor","Veyron","Konchi"}
+
+
 def konchi_kons(g, uid):
     """Remaining mines of a Konchi: {"1": "dollar", ...}. Created once per game and player."""
     kons=g.setdefault("konchi",{})
@@ -519,7 +528,7 @@ async def resolve_night_effects(ctx,g):
         if not killer or killer.get("role") in {"Minior","Sehrgar"}: continue
         damage=25 if any(kr in {"Snayper","Professor"} for _,_,kr in caused) else 50
         killer["hp"]-=damage
-        if killer["hp"]<=0: kill_player(killer,"la'natchi")
+        if killer["hp"]<=0 and kill_player(killer,"la'natchi"): deaths.append((killer,lp,"La’natchi"))
     # Bounty payout: only the killer whose action actually caused the death qualifies.
     for victim,killer,kr in list(deaths):
         if not killer: continue

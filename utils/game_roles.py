@@ -55,7 +55,7 @@ def role_balance(n):
     return out[:n]
 
 
-def apply_admin_roles(g, role_list):
+def apply_admin_roles(g, role_list, use_active=True):
     """Assignment order: admin-forced roles first, then purchased active roles, then remaining roles."""
     players=list(g.get("players",{}).values())
     assigned={}
@@ -79,7 +79,7 @@ def apply_admin_roles(g, role_list):
     remaining_indices=[i for i in range(len(role_list)) if i not in used_role_indices]
     for p in players:
         if p["id"] in assigned: continue
-        ars=active_roles_for(p["id"])
+        ars=active_roles_for(p["id"]) if use_active else []
         chosen=None
         chosen_idx=None
         for ar in ars:

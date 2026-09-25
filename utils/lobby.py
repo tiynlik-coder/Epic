@@ -10,9 +10,11 @@ from telegram.ext import ContextTypes
 
 from config import LOBBY_TIME, MAX_PLAYERS, MIN_PLAYERS, VS_TEAM_COLORS
 from keyboards.game_keyboard import lobby_markup
+from models.chat_settings import get_settings
 from models.users import ensure_user
 from utils.game_logic import start_game
 from utils.players import getp, mention, new_player, visible_mention
+from utils.permissions import has_perm
 from utils.state import cancel_game, find_game, game_id, games, persist_games, schedule_phase, valid_job
 from utils.telegram_utils import group_return_url, unpin_lobby
 
@@ -43,23 +45,51 @@ def vs_lobby_text(g):
         lines.append(f"{VS_TEAM_COLORS[k]} <b>{k.title()}</b>")
         lines.extend(f"  {i}. {m}" for i,m in enumerate(members,1))
         if not members: lines.append("  —")
-    lines += ["", f"Jami: <b>{len(g.get('players',{}))}</b>/{MAX_PLAYERS}", "⏳ Ro‘yxatdan o‘tish: 30 daqiqa"]
+    lines += ["", f"Jami: <b>{len(g.get('players',{}))}</b>/{player_limit(g)}", "⏳ Ro‘yxatdan o‘tish: 30 daqiqa"]
     return "\n".join(lines)
 
 
 def vs_team_capacity(g):
     teams=int(g.get("mode_state",{}).get("teams_count",2))
     teams=max(2,min(9,teams))
-    return math.ceil(MAX_PLAYERS/teams)
+    return math.ceil(player_limit(g)/teams)
+
+
+def player_limit(g):
+    return min(MAX_PLAYERS, int((g.get("settings") or {}).get("max_players", MAX_PLAYERS)))
+
+
+def busy_elsewhere(uid, g):
+    """True when the user already sits in another lobby or is alive in another running game."""
+    for other in games.values():
+        if other is g or other.get("phase") in {"ended","cancelled"}: continue
+        p=other["players"].get(uid)
+        if p and (other.get("phase")=="lobby" or p.get("alive")): return True
+    return False
+
+
+async def refresh_lobby(bot, g):
+    me=await bot.get_me()
+    text=vs_lobby_text(g) if g.get("mode")=="vs" else standard_lobby_text(g)
+    try: await bot.edit_message_text(chat_id=g["chat_id"],message_id=g["lobby_message_id"],text=text,reply_markup=lobby_markup(g,me.username or ""),parse_mode=ParseMode.HTML)
+    except TelegramError: pass
+
+
+async def start_if_full(app, g):
+    if g.get("phase")=="lobby" and len(g["players"])>=player_limit(g):
+        await start_game(app,g)
 
 
 async def create_lobby(update, ctx, mode=None, mode_value=None):
     if update.effective_chat.type not in {ChatType.GROUP,ChatType.SUPERGROUP}: return
     chat=update.effective_chat
+    settings=get_settings(chat.id)
+    if not await has_perm(ctx.bot,chat.id,update.effective_user.id,settings["perm_game"]):
+        return await update.message.reply_text("❌ Bu guruhda o‘yinni faqat ruxsat berilganlar boshlay oladi.")
     if chat.id in games and games[chat.id].get("phase") not in {"ended","cancelled"}:
         return await update.message.reply_text("⚠️ Bu guruhda allaqachon o‘yin/lobby mavjud.")
     gid=game_id()
-    g={"id":gid,"chat_id":chat.id,"phase":"lobby","phase_id":1,"created":time.time(),"players":{},"jobs":[],"start_time":None,"night":0,"night_log":[],"votes":{},"lobby_message_id":None,"ended":False,"night_message_ids":[],"mode":mode,"mode_value":mode_value,"bounties":[],"mode_state":{}}
+    g={"id":gid,"chat_id":chat.id,"phase":"lobby","phase_id":1,"created":time.time(),"players":{},"jobs":[],"start_time":None,"night":0,"night_log":[],"votes":{},"lobby_message_id":None,"ended":False,"night_message_ids":[],"mode":mode,"mode_value":mode_value,"bounties":[],"mode_state":{},"settings":settings}
     if mode == "vs":
         g["mode_state"]={"teams_count":int(mode_value or 2)}
     games[chat.id]=g
@@ -113,20 +143,20 @@ async def join_lobby_deeplink(update:Update,ctx:ContextTypes.DEFAULT_TYPE,token_
     uid=user.id
     ensure_user(user)
     if uid not in g["players"]:
-        if len(g["players"])>=MAX_PLAYERS:
-            await update.message.reply_text("❌ O‘yin 50 kishiga to‘ldi.")
+        if busy_elsewhere(uid,g):
+            await update.message.reply_text("❌ Siz boshqa guruhdagi o‘yinda qatnashyapsiz. Avval uni tugating yoki /leave qiling.")
+            return True
+        if len(g["players"])>=player_limit(g):
+            await update.message.reply_text(f"❌ O‘yin {player_limit(g)} kishiga to‘ldi.")
             return True
         g["players"][uid]=new_player(user)
         g["players"][uid]["lobby_joined_at"]=time.time()
         persist_games()
-        me=await ctx.bot.get_me()
-        try:
-            await ctx.bot.edit_message_text(chat_id=g["chat_id"],message_id=g["lobby_message_id"],text=standard_lobby_text(g),reply_markup=lobby_markup(g,me.username or ""),parse_mode=ParseMode.HTML)
-        except TelegramError:
-            pass
+        await refresh_lobby(ctx.bot,g)
     return_url=await group_return_url(ctx.bot,g)
     kb=InlineKeyboardMarkup([[InlineKeyboardButton("↗️ Guruhga o‘tish",url=return_url)]]) if return_url else None
     await update.message.reply_text("<b>Siz o‘yinga muvaffaqiyatli qo‘shildingiz! 🎭</b>",reply_markup=kb,parse_mode=ParseMode.HTML)
+    await start_if_full(ctx.application,g)
     return True
 
 
@@ -152,8 +182,11 @@ async def join_vs_deeplink(update:Update,ctx:ContextTypes.DEFAULT_TYPE,token_val
     if len(current)>=max_team and (not p or p.get("team")!=team):
         await update.message.reply_text("❌ Bu jamoa to‘lgan.")
         return True
-    if not p and len(g["players"])>=MAX_PLAYERS:
-        await update.message.reply_text(f"❌ O‘yin {MAX_PLAYERS} kishiga to‘ldi.")
+    if not p and busy_elsewhere(uid,g):
+        await update.message.reply_text("❌ Siz boshqa guruhdagi o‘yinda qatnashyapsiz. Avval uni tugating yoki /leave qiling.")
+        return True
+    if not p and len(g["players"])>=player_limit(g):
+        await update.message.reply_text(f"❌ O‘yin {player_limit(g)} kishiga to‘ldi.")
         return True
     if p and p.get("alive"):
         p["team"]=team
@@ -161,9 +194,7 @@ async def join_vs_deeplink(update:Update,ctx:ContextTypes.DEFAULT_TYPE,token_val
     else:
         g["players"][uid]=new_player(update.effective_user); g["players"][uid]["team"]=team
         await update.message.reply_text(f"✅ Siz {VS_TEAM_COLORS[team]} jamoaga qo‘shildingiz.")
-    me=await ctx.bot.get_me()
-    try:
-        await ctx.bot.edit_message_text(chat_id=g["chat_id"],message_id=g["lobby_message_id"],text=vs_lobby_text(g),reply_markup=lobby_markup(g,me.username or ""),parse_mode=ParseMode.HTML)
-    except TelegramError: pass
+    await refresh_lobby(ctx.bot,g)
     persist_games()
+    await start_if_full(ctx.application,g)
     return True

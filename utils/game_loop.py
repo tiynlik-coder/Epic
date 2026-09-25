@@ -4,7 +4,7 @@ import time
 
 from telegram.error import TelegramError
 
-from utils.game_logic import resolve_afsungar, resolve_night, resolve_vote, start_day, start_voting
+from utils.game_logic import resolve_afsungar, resolve_confirm, resolve_night, resolve_revenge, resolve_vote, start_day, start_voting
 from utils.lobby import finish_lobby
 from utils.night_actions import veyron_notice_job, zombie_convert_job
 from utils.state import cancel_game, cancel_jobs, find_game, games
@@ -39,6 +39,8 @@ def resume_games(app):
         elif phase=="discussion": fn=start_voting; name="discussion-resume"
         elif phase=="afsungar": fn=resolve_afsungar; name="afsungar-resume"
         elif phase=="voting": fn=resolve_vote; name="vote-resume"
+        elif phase=="confirm": fn=resolve_confirm; name="confirm-resume"
+        elif phase=="revenge": fn=resolve_revenge; name="revenge-resume"
         else: continue
         cancel_jobs(g)
         g["jobs"]=[app.job_queue.run_once(fn,remaining,data={"gid":g["id"],"phase":g["phase_id"]},name=f"{name}-{g['id']}")]

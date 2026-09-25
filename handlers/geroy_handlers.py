@@ -9,7 +9,7 @@ from config import HERO_BALL_PRICE, HERO_GUN_BASE, HERO_MARKET_FEE, HERO_NAME_PR
 from keyboards.user_keyboards import hero_market_markup, hero_menu_markup
 from models.database import IntegrityError, db
 from models.users import add_balance, spend
-from models.heroes import hero_damage_range, hero_level, hero_max_shield, hero_row, hero_text
+from models.heroes import hero_damage_range, hero_max_shield, hero_row, hero_text
 from utils.telegram_utils import cb_answer, safe_edit
 
 

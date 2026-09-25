@@ -7,15 +7,18 @@ from telegram.constants import ChatType, ParseMode
 from telegram.error import TelegramError
 from telegram.ext import ContextTypes
 
-from config import MAX_PLAYERS, is_bot_admin
+from config import MAX_PLAYERS
 from keyboards.game_keyboard import modes_keyboard, name_buttons
 from models.users import spend
 from models.heroes import hero_row
-from utils.lobby import create_lobby
+from models.chat_settings import get_settings
+from utils.game_logic import after_vote, can_vote, confirm_markup, promote_successors, settings_of, take_along
+from utils.lobby import create_lobby, refresh_lobby
+from utils.permissions import has_perm, is_chat_admin
 from utils.night_actions import ACTION_MODES, NIGHT_PROMPTS, konchi_kons, veyron_notice_job
 from utils.players import ability_role, getp, kill_player, living, mention, role_label, targets, visible_mention, visible_name
 from utils.state import cancel_game, find_game, games, persist_games
-from utils.telegram_utils import cb_answer, safe_edit, unpin_lobby
+from utils.telegram_utils import cb_answer, safe_edit, send_private, unpin_lobby
 from utils.texts import mode_detail
 
 
@@ -288,28 +291,64 @@ async def cb_vey2(update,ctx):
     persist_games(); await cb_answer(q,"Tanlov saqlandi.")
 
 
+def _vote_voice(g,voter):
+    """How a vote is announced: Janob and anonymous chats hide the voter."""
+    if voter.get("role")=="Janob": return "🎖 Janob"
+    if settings_of(g).get("anonymous_votes"): return "Kimdir"
+    return visible_mention(g,voter)
+
+
 async def cb_vote(update,ctx):
     q=update.callback_query; a=q.data.split(":"); typ=a[0]; gid=a[1]; target=int(a[2]) if len(a)>2 else None
-    g=next((x for x in games.values() if x["id"]==gid),None)
+    g=find_game(gid)
     if not g or g["phase"]!="voting":return await cb_answer(q,"Ovoz berish tugagan.",True)
     voter=getp(g,q.from_user.id)
     if not voter or not voter["alive"]:return await cb_answer(q,"Siz tirik emassiz.",True)
-    if q.from_user.id in g["votes"]:return await cb_answer(q,"Ovozingiz allaqachon qabul qilingan.",True)
-    if typ=="vote":
-        t=getp(g,target)
-        if not t or not t["alive"]:return await cb_answer(q,"Nishon mavjud emas.",True)
-        if t["id"]==voter["id"]:return await cb_answer(q,"O‘zingizga ovoz bera olmaysiz.",True)
-        g["votes"][q.from_user.id]=target; persist_games()
-        await safe_edit(q,f"🗳 Sizning ovozingiz: {visible_name(g,t)}",None)
-        await cb_answer(q,"Ovoz qabul qilindi.")
-        try: await ctx.bot.send_message(g["chat_id"],f"🗳 {visible_mention(g,voter)} ➡️ {visible_mention(g,t)}ga ovoz berdi.",parse_mode=ParseMode.HTML)
+    if not can_vote(g,voter):return await cb_answer(q,"Bugun ovoz bera olmaysiz.",True)
+    if str(voter["id"]) in g["votes"]:return await cb_answer(q,"Ovozingiz allaqachon qabul qilingan.",True)
+    t=getp(g,target) if typ=="vote" else None
+    if typ=="vote" and (not t or not t["alive"]):return await cb_answer(q,"Nishon mavjud emas.",True)
+    if t and t["id"]==voter["id"]:return await cb_answer(q,"O‘zingizga ovoz bera olmaysiz.",True)
+    # The Aferist also casts the vote of the player he fooled last night.
+    fooled=[getp(g,int(v)) for v,aid in (g.get("aferist") or {}).items() if aid==voter["id"]]
+    for voice in [voter]+[f for f in fooled if f and f["alive"] and str(f["id"]) not in g["votes"]]:
+        g["votes"][str(voice["id"])]=t["id"] if t else None
+        text=f"🗳 {_vote_voice(g,voice)} ➡️ {visible_mention(g,t)}ga ovoz berdi." if t else f"🗳 {_vote_voice(g,voice)} ovoz bermaslikni tanladi."
+        try: await ctx.bot.send_message(g["chat_id"],text,parse_mode=ParseMode.HTML)
         except TelegramError: pass
-    else:
-        g["votes"][q.from_user.id]=None; persist_games()
-        await safe_edit(q,"⏭ Ovoz bermaslik tanlandi.",None)
-        await cb_answer(q,"Ovoz bermaslik tanlandi.")
-        try: await ctx.bot.send_message(g["chat_id"],f"🗳 {visible_mention(g,voter)} ovoz bermaslikni tanladi.",parse_mode=ParseMode.HTML)
-        except TelegramError: pass
+    persist_games()
+    await safe_edit(q,f"🗳 Sizning ovozingiz: {visible_name(g,t)}" if t else "⏭ Ovoz bermaslik tanlandi.",None)
+    await cb_answer(q,"Ovoz qabul qilindi.")
+
+
+async def cb_hang(update,ctx):
+    """👍/👎 under "Rostdan ham ... osmoqchimisiz?" — one vote per alive, awake player; changing is allowed."""
+    q=update.callback_query; parts=q.data.split(":")
+    if len(parts)!=3: return await cb_answer(q)
+    _,gid,choice=parts; g=find_game(gid)
+    if not g or g.get("phase")!="confirm": return await cb_answer(q,"Ovoz berish tugagan.",True)
+    p=getp(g,q.from_user.id)
+    if not p or not p.get("alive") or p.get("blocked") or p["id"]==g.get("hang_target"): return await cb_answer(q,"Siz bu ovozda qatnasha olmaysiz.",True)
+    vote=choice=="yes"
+    if g["hang_votes"].get(str(p["id"]))==vote: return await cb_answer(q)
+    g["hang_votes"][str(p["id"])]=vote; persist_games()
+    try: await q.edit_message_reply_markup(reply_markup=confirm_markup(g))
+    except TelegramError: pass
+    await cb_answer(q,"👍" if vote else "👎")
+
+
+async def cb_afs(update,ctx):
+    """The hanged Afsungar picks who goes with him."""
+    q=update.callback_query; parts=q.data.split(":")
+    if len(parts)!=3: return await cb_answer(q)
+    _,gid,target=parts; g=find_game(gid)
+    if not g or g.get("phase")!="revenge" or q.from_user.id!=g.get("revenge_by"): return await cb_answer(q,"Vaqt tugagan.",True)
+    t=getp(g,int(target))
+    if not t or not t["alive"]: return await cb_answer(q,"O‘yinchi topilmadi.",True)
+    await safe_edit(q,f"💣 Siz {visible_name(g,t,True)}ni tanladingiz.",None); await cb_answer(q)
+    g["phase"]="revenge_done"  # a second tap must not take another player
+    await take_along(ctx.application,g,t)
+    await after_vote(ctx.application,g)
 
 
 async def cb_af(update,ctx):
@@ -341,13 +380,64 @@ async def cb_folbin_msg(update,ctx):
 
 async def cmd_stop(update,ctx):
     if update.effective_chat.type not in {ChatType.GROUP,ChatType.SUPERGROUP}:return
-    if not is_bot_admin(update.effective_user.id):
-        member=await ctx.bot.get_chat_member(update.effective_chat.id,update.effective_user.id)
-        if member.status not in {"administrator","creator"}:
-            return await update.message.reply_text("❌ Bu buyruq faqat guruh adminlari uchun.")
-    g=games.get(update.effective_chat.id)
+    chat_id=update.effective_chat.id
+    if not await has_perm(ctx.bot,chat_id,update.effective_user.id,get_settings(chat_id)["perm_stop"]):
+        return await update.message.reply_text("❌ Sizda o‘yinni to‘xtatish huquqi yo‘q.")
+    g=games.get(chat_id)
     if not g or g.get("phase") in {"ended","cancelled"}: return await update.message.reply_text("ℹ️ Faol o‘yin yo‘q.")
-    cancel_game(g); await unpin_lobby(ctx.bot,g); await update.message.reply_text("🛑 O‘yin admin tomonidan to‘xtatildi.")
+    cancel_game(g); await unpin_lobby(ctx.bot,g); await update.message.reply_text("🛑 O‘yin to‘xtatildi.")
+
+
+def _user_game(uid):
+    """The not-finished game where this user is registered (lobby) or still alive."""
+    for g in games.values():
+        p=g["players"].get(uid)
+        if p and g.get("phase") not in {"ended","cancelled"} and (g.get("phase")=="lobby" or p.get("alive")): return g,p
+    return None,None
+
+
+async def remove_from_game(app,g,p,reason):
+    """Take a player out of a lobby or a running game (leave / kick)."""
+    if g.get("phase")=="lobby":
+        g["players"].pop(p["id"],None); persist_games()
+        await refresh_lobby(app.bot,g); return
+    kill_player(p,reason)
+    await promote_successors(app.bot,g)
+    persist_games()
+
+
+async def cmd_leave(update,ctx):
+    uid=update.effective_user.id
+    g,p=_user_game(uid)
+    if not g: return await update.message.reply_text("ℹ️ Siz hech qaysi o‘yinda emassiz.")
+    if g.get("phase")!="lobby" and not settings_of(g).get("allow_leave",True):
+        return await update.message.reply_text("❌ Bu guruhda o‘yindan chiqish taqiqlangan.")
+    await remove_from_game(ctx.application,g,p,"leave")
+    if g.get("phase")=="lobby":
+        return await update.message.reply_text("✅ Siz ro‘yxatdan chiqdingiz.")
+    await ctx.bot.send_message(g["chat_id"],f"🪢 {visible_mention(g,p,True)} bu shaharning yovuzliklariga chiday olmadi va o‘zini osib qo‘ydi.\nU {role_label(p['role'])} edi.",parse_mode=ParseMode.HTML)
+    await send_private(ctx.bot,uid,"Siz o‘yindan chiqdingiz.")
+
+
+async def cmd_tep(update,ctx):
+    """/tep N — a group admin removes player number N (numbers are shown in the night list)."""
+    if update.effective_chat.type not in {ChatType.GROUP,ChatType.SUPERGROUP}: return
+    chat_id=update.effective_chat.id
+    if not await is_chat_admin(ctx.bot,chat_id,update.effective_user.id): return
+    g=games.get(chat_id)
+    if not g or g.get("phase") in {"ended","cancelled"}: return await update.message.reply_text("ℹ️ Faol o‘yin yo‘q.")
+    if not ctx.args or not ctx.args[0].isdigit(): return await update.message.reply_text("Foydalanish: /tep <raqam>")
+    n=int(ctx.args[0])
+    if g.get("phase")=="lobby":
+        players=list(g["players"].values())
+        p=players[n-1] if 1<=n<=len(players) else None
+    else:
+        p=next((x for x in living(g) if x.get("num")==n),None)
+    if not p: return await update.message.reply_text("❌ Bunday raqamli o‘yinchi topilmadi.")
+    await remove_from_game(ctx.application,g,p,"kick")
+    shown=f"U {role_label(p['role'])} edi." if g.get("phase")!="lobby" else ""
+    await update.message.reply_text(f"🚷 {visible_mention(g,p,True)} admin tomonidan o‘yindan chiqarildi. {shown}",parse_mode=ParseMode.HTML)
+
 
 
 async def cb_amode(update,ctx):
