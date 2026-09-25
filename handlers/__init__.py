@@ -43,6 +43,7 @@ from .game import (
     cmd_stop,
     cmd_ugame,
     cmd_vsgame,
+    cb_vs_teams,
     cmd_zgame,
 )
 from .admin import (
@@ -149,8 +150,6 @@ def register_handlers(app):
     app.add_handler(CommandHandler("ugame",cmd_ugame))
     app.add_handler(CommandHandler("zgame",cmd_zgame))
     app.add_handler(CommandHandler("vsgame",cmd_vsgame))
-    for _n in range(2,10):
-        app.add_handler(CommandHandler(f"vsgame{_n}", lambda update, ctx, n=_n: cmd_vsgame(update,ctx,n)))
     app.add_handler(CommandHandler("bounty",cmd_bounty))
     app.add_handler(CommandHandler("modes",cmd_modes))
     app.add_handler(CommandHandler("stop",cmd_stop))
@@ -235,6 +234,7 @@ def register_handlers(app):
     app.add_handler(CallbackQueryHandler(cb_afs,r"^afs:"))
     app.add_handler(CallbackQueryHandler(cb_settings,r"^cset:"))
     app.add_handler(CallbackQueryHandler(cb_para,r"^para:"))
+    app.add_handler(CallbackQueryHandler(cb_vs_teams,r"^vsn:"))
     app.add_handler(CallbackQueryHandler(cb_eco,r"^eco:"))
     app.add_handler(CallbackQueryHandler(cb_giveaway,r"^gw:"))
     app.add_handler(CallbackQueryHandler(cb_lottery,r"^lot:"))

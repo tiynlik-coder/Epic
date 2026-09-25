@@ -85,9 +85,9 @@ async def create_lobby(update, ctx, mode=None, mode_value=None):
     chat=update.effective_chat
     settings=get_settings(chat.id)
     if not await has_perm(ctx.bot,chat.id,update.effective_user.id,settings["perm_game"]):
-        return await update.message.reply_text("❌ Bu guruhda o‘yinni faqat ruxsat berilganlar boshlay oladi.")
+        return await update.effective_message.reply_text("❌ Bu guruhda o‘yinni faqat ruxsat berilganlar boshlay oladi.")
     if chat.id in games and games[chat.id].get("phase") not in {"ended","cancelled"}:
-        return await update.message.reply_text("⚠️ Bu guruhda allaqachon o‘yin/lobby mavjud.")
+        return await update.effective_message.reply_text("⚠️ Bu guruhda allaqachon o‘yin/lobby mavjud.")
     gid=game_id()
     g={"id":gid,"chat_id":chat.id,"phase":"lobby","phase_id":1,"created":time.time(),"players":{},"jobs":[],"start_time":None,"night":0,"night_log":[],"votes":{},"lobby_message_id":None,"ended":False,"night_message_ids":[],"mode":mode,"mode_value":mode_value,"bounties":[],"mode_state":{},"settings":settings}
     if mode == "vs":
@@ -95,7 +95,7 @@ async def create_lobby(update, ctx, mode=None, mode_value=None):
     games[chat.id]=g
     me=await ctx.bot.get_me()
     text=vs_lobby_text(g) if mode == "vs" else standard_lobby_text(g)
-    msg=await update.message.reply_text(text,reply_markup=lobby_markup(g,me.username or ""),parse_mode=ParseMode.HTML)
+    msg=await update.effective_message.reply_text(text,reply_markup=lobby_markup(g,me.username or ""),parse_mode=ParseMode.HTML)
     g["lobby_message_id"]=msg.message_id
     # Pin the registration message like the reference lobby.
     try:

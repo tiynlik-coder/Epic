@@ -63,7 +63,7 @@ Epic/
 ├── keyboards/                   ← tugmalar
 └── tests/                       ← 56 ta test: rollar, kun, iqtisodiyot, reyting (SQLite va Postgres)
 
-Rejimlar: /game (oddiy), /ngame <nik>, /ugame, /zgame, /vsgame 2–9, /pgame (para).
+Rejimlar: /game (oddiy), /ngame <nik>, /ugame, /zgame, /vsgame (2–9 jamoa tanlanadi), /pgame (para).
 Rollar to'plami (/settings): Epic aralash yoki Baku classic / super / mega / real.
 
 O'yinchi buyruqlari: /start, /profile, /leave, /money N, /give N, /sgive ID N, /gsend N, /ginfo,

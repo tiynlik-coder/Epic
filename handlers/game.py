@@ -49,18 +49,34 @@ async def cmd_pgame(update:Update,ctx:ContextTypes.DEFAULT_TYPE):
     return await create_lobby(update,ctx,"para",None)
 
 
-async def cmd_vsgame(update:Update,ctx:ContextTypes.DEFAULT_TYPE, teams_override=None):
-    if update.effective_chat.type not in {ChatType.GROUP,ChatType.SUPERGROUP}: return
-    raw=(update.message.text or "").strip().lower()
-    teams=teams_override
-    if teams is None:
-        tail=raw[len("/vsgame"):].strip()
-        if tail.isdigit(): teams=int(tail)
-        elif ctx.args and ctx.args[0].isdigit(): teams=int(ctx.args[0])
-        else: teams=2
-    if not 2 <= teams <= 9:
-        return await update.message.reply_text("❌ VS mode jamoalari 2–9 oralig‘ida bo‘lishi kerak.")
-    return await create_lobby(update,ctx,"vs",teams)
+def vs_teams_markup(uid):
+    buttons=[InlineKeyboardButton(f"{n} jamoa",callback_data=f"vsn:{uid}:{n}") for n in range(2,10)]
+    return InlineKeyboardMarkup([buttons[i:i+4] for i in range(0,len(buttons),4)])
+
+
+async def cmd_vsgame(update:Update,ctx:ContextTypes.DEFAULT_TYPE):
+    """/vsgame shows a 2–9 teams choice; /vsgame N starts N teams right away."""
+    chat=update.effective_chat
+    if chat.type not in {ChatType.GROUP,ChatType.SUPERGROUP}: return
+    if ctx.args and ctx.args[0].isdigit():
+        teams=int(ctx.args[0])
+        if not 2 <= teams <= 9: return await update.message.reply_text("❌ VS mode jamoalari 2–9 oralig‘ida bo‘lishi kerak.")
+        return await create_lobby(update,ctx,"vs",teams)
+    if not await has_perm(ctx.bot,chat.id,update.effective_user.id,get_settings(chat.id)["perm_game"]):
+        return await update.message.reply_text("❌ Bu guruhda o‘yinni faqat ruxsat berilganlar boshlay oladi.")
+    await update.message.reply_text("⚔️ <b>VS mode</b>\n\nNechta jamoa bo‘lsin?",reply_markup=vs_teams_markup(update.effective_user.id),parse_mode=ParseMode.HTML)
+
+
+async def cb_vs_teams(update,ctx):
+    q=update.callback_query; parts=q.data.split(":")
+    if len(parts)!=3 or not parts[1].isdigit() or not parts[2].isdigit(): return await cb_answer(q)
+    if q.from_user.id!=int(parts[1]): return await cb_answer(q,"Buni /vsgame yozgan odam tanlaydi.",True)
+    teams=int(parts[2])
+    if not 2<=teams<=9: return await cb_answer(q)
+    await cb_answer(q)
+    await create_lobby(update,ctx,"vs",teams)
+    try: await q.message.delete()
+    except TelegramError: pass
 
 
 async def cmd_bounty(update:Update,ctx:ContextTypes.DEFAULT_TYPE):
