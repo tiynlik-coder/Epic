@@ -66,14 +66,14 @@ async def cmd_market_stats(update, ctx):
     if not is_bot_admin(update.effective_user.id): return
     (users,money,diamonds),paid,games=market_totals()
     pays="\n".join(f"• {p[0]}: {p[1]} ta, {p[2]}💎" for p in paid) or "—"
-    await update.message.reply_text(f"📊 <b>Statistika</b>\n\n👥 Userlar: {users}\n💷 Jami pul: {money}\n💎 Jami olmos: {diamonds}\n🎮 So‘nggi 24 soatdagi o‘yinlar: {games}\n\n💳 To‘lovlar:\n{pays}",parse_mode=ParseMode.HTML)
+    await update.message.reply_text(f"📊 <b>Statistika</b>\n\n👥 Userlar: {users}\n💷 Jami dollar: {money}\n💎 Jami olmos: {diamonds}\n🎮 So‘nggi 24 soatdagi o‘yinlar: {games}\n\n💳 To‘lovlar:\n{pays}",parse_mode=ParseMode.HTML)
 
 
 async def cmd_eboylar(update, ctx):
     """Excel file with the 1000 richest users."""
     if not is_bot_admin(update.effective_user.id): return
     from openpyxl import Workbook
-    wb=Workbook(); ws=wb.active; ws.title="Boylar"; ws.append(["#","User ID","Ism","Olmos","Pul"])
+    wb=Workbook(); ws=wb.active; ws.title="Boylar"; ws.append(["#","User ID","Ism","Olmos","Dollar"])
     for i,r in enumerate(richest(1000),1): ws.append([i,r[0],r[1] or "",r[2],r[3]])
     buf=io.BytesIO(); wb.save(buf); buf.seek(0)
     await update.message.reply_document(buf,filename="boylar.xlsx",caption="💰 Eng boy 1000 foydalanuvchi")

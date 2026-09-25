@@ -25,7 +25,7 @@ def profile_text(uid):
     lines=[
         f"<b>{html.escape(name)}</b>{vip}",
         "",
-        f"💵 <b>Pullar:</b> {int(r['money'] or 0)}" if r else "💵 <b>Pullar:</b> 0",
+        f"💷 <b>Dollar:</b> {int(r['money'] or 0)}" if r else "💷 <b>Dollar:</b> 0",
         f"💎 <b>Olmos:</b> {int(r['diamonds'] or 0)}" if r else "💎 <b>Olmos:</b> 0",
         f"🪙 <b>Epic Coin:</b> {int(r['coins'] or 0)}" if r else "🪙 <b>Epic Coin:</b> 0",
         "",

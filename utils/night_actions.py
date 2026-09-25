@@ -44,7 +44,7 @@ NIGHT_PROMPTS = {
     "Ayg‘oqchi":"🕵️ Bugun kimni kuzatamiz?",
     "Labarant":"🧪 Kimni tanlaymiz? Mafiyani davolaysiz, boshqani o‘ldirasiz.",
     "Manipulyator":"🪄 Bugun kimning harakatini o‘zgartiramiz?",
-    "Undiruvchi":"💰 Bugun kimdan pul undiramiz?",
+    "Undiruvchi":"💰 Bugun kimdan dollar undiramiz?",
     "Sotqin":"🦎 Bugun kimni tanlaymiz?",
     "Folbin":"🧿 Bugun kimning tarafini aniqlaymiz?",
     "Zodagon":"👑 Bugun kimni tanlaymiz?",
@@ -55,7 +55,7 @@ NIGHT_PROMPTS = {
     "Qorbobo":"🎅 Bugun kimga sovg‘a beramiz? 🎁",
     "Qorbola":"🌨️ Bugun kimni Qorbo‘ron qilamiz?",
     "Tabib":"🩺 Bugun kimga dori qutisini beramiz?",
-    "Rais":"🤑 Bugun kimga pul tarqatamiz?",
+    "Rais":"🤑 Bugun kimga dollar tarqatamiz?",
     "Tulki":"🦊 Kimning tarafiga o‘tamiz?",
     "Kimyogar":"👨‍🔬 Kimni tanlaymiz?",
     "Joker":"🤡 Kartalarni kimga yuboramiz?",
@@ -114,7 +114,7 @@ async def offer_night_action(app,g,p):
         kons=konchi_kons(g,p["id"])
         buttons=[InlineKeyboardButton(f"⛏ {n}",callback_data=f"kon:{g['id']}:{p['id']}:{n}") for n in sorted(kons,key=int)]
         rows=[buttons[i:i+5] for i in range(0,len(buttons),5)]
-        await send_private(app.bot,p["id"],"👷🏻‍♂️ Qaysi konga tushamiz? Ba’zilarida 💵, ba’zilarida 💎, ba’zilarida o‘lim bor.",InlineKeyboardMarkup(rows)); return
+        await send_private(app.bot,p["id"],"👷🏻‍♂️ Qaysi konga tushamiz? Ba’zilarida 💷, ba’zilarida 💎, ba’zilarida o‘lim bor.",InlineKeyboardMarkup(rows)); return
     await send_private(app.bot,p["id"],NIGHT_PROMPTS.get(r,"🎭 Bugun kimni tanlaymiz?"),name_buttons(g,"act",p["id"]))
 
 

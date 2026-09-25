@@ -299,7 +299,7 @@ async def _bust_field(update,ctx,field,symbol,label):
 
 
 async def cmd_bust(update,ctx): await _bust_field(update,ctx,'diamonds','💎','almaz')
-async def cmd_bust1(update,ctx): await _bust_field(update,ctx,'money','💷','pul')
+async def cmd_bust1(update,ctx): await _bust_field(update,ctx,'money','💷','dollar')
 async def cmd_bust2(update,ctx): await _bust_field(update,ctx,'coins','🪙','coin')
 
 
@@ -331,7 +331,7 @@ async def cmd_you(update,ctx):
     r=get_user(uid)
     if not r: return await update.message.reply_text("❌ Foydalanuvchi topilmadi.")
     ar=active_roles_for(uid); fr=forced_role(uid); h=hero_row(uid)
-    lines=[f"👤 <b>{_display_name(uid)}</b>",f"🆔 <code>{uid}</code>","",f"💷 Pul: {int(r['money'] or 0)}",f"💎 Almaz: {int(r['diamonds'] or 0)}",f"🪙 Coin: {int(r['coins'] or 0)}","",f"🎮 O‘yinlar: {int(r['games'] or 0)} | 🏆 G‘alaba: {int(r['wins'] or 0)}"]
+    lines=[f"👤 <b>{_display_name(uid)}</b>",f"🆔 <code>{uid}</code>","",f"💷 Dollar: {int(r['money'] or 0)}",f"💎 Almaz: {int(r['diamonds'] or 0)}",f"🪙 Coin: {int(r['coins'] or 0)}","",f"🎮 O‘yinlar: {int(r['games'] or 0)} | 🏆 G‘alaba: {int(r['wins'] or 0)}"]
     if h: lines.append(f"🥷 Geroy: {html.escape(str(h['name']))} — Lv.{h['level']}")
     else: lines.append("🥷 Geroy: yo‘q")
     if fr: lines.append(f"🎭 Admin roli (/aktiv): {html.escape(str(fr))}")

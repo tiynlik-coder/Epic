@@ -273,7 +273,7 @@ async def cb_eco(update, ctx):
                                    provider_token="",currency="XTR",prices=[LabeledPrice(f"{d} 💎",STAR_PACKS[d])])
     elif action=="money":
         rows=[[InlineKeyboardButton(f"{m}💷 — {d}💎",callback_data=f"eco:mpack:{i}")] for i,(m,d) in enumerate(MONEY_PACKS)]
-        await safe_edit(q,"💷 <b>Olmos evaziga pul</b>",InlineKeyboardMarkup(rows+[_back()]))
+        await safe_edit(q,"💷 <b>Olmos evaziga dollar</b>",InlineKeyboardMarkup(rows+[_back()]))
     elif action=="mpack" and arg.isdigit() and int(arg)<len(MONEY_PACKS):
         money,cost=MONEY_PACKS[int(arg)]
         con=db()
@@ -313,7 +313,7 @@ async def cb_eco(update, ctx):
         await safe_edit(q,"🎚 <b>Qaysi buyumlar o‘yinda ishlasin?</b>\n❌ bo‘lgan buyum sarflanmaydi.",items_menu(uid))
     elif action=="swap":
         ctx.user_data["swap_pending"]=True
-        await safe_edit(q,f"🔄 <b>Profil almashish</b>\n\nHamma pul, olmos, buyum, statistika, geroy va VIP almashadi. Narxi: {PROFILE_SWAP_PRICE}💎 (siz to‘laysiz).\n\nAlmashmoqchi bo‘lgan odamning Telegram ID raqamini yuboring.",InlineKeyboardMarkup([_back()]))
+        await safe_edit(q,f"🔄 <b>Profil almashish</b>\n\nHamma dollar, olmos, buyum, statistika, geroy va VIP almashadi. Narxi: {PROFILE_SWAP_PRICE}💎 (siz to‘laysiz).\n\nAlmashmoqchi bo‘lgan odamning Telegram ID raqamini yuboring.",InlineKeyboardMarkup([_back()]))
     elif action in {"swapok","swapno"} and arg.isdigit():
         from_id=int(arg)
         if action=="swapno":
@@ -350,7 +350,7 @@ async def swap_id_text(update, ctx):
     economy.offer_swap(me.id,to_id)
     kb=InlineKeyboardMarkup([[InlineKeyboardButton("✅ Qabul qilaman",callback_data=f"eco:swapok:{me.id}"),InlineKeyboardButton("❌ Rad etaman",callback_data=f"eco:swapno:{me.id}")]])
     try:
-        await ctx.bot.send_message(to_id,f"🔄 {_name(me)} siz bilan profil almashishni taklif qilmoqda (10 daqiqa amal qiladi). Hamma pul, olmos, buyum va statistika almashadi.",reply_markup=kb,parse_mode=ParseMode.HTML)
+        await ctx.bot.send_message(to_id,f"🔄 {_name(me)} siz bilan profil almashishni taklif qilmoqda (10 daqiqa amal qiladi). Hamma dollar, olmos, buyum va statistika almashadi.",reply_markup=kb,parse_mode=ParseMode.HTML)
         await update.message.reply_text("✅ Taklif yuborildi. Javobni kuting.")
     except TelegramError:
         await update.message.reply_text("❌ Bu foydalanuvchiga xabar yuborib bo‘lmadi (botni ishga tushirmagan).")

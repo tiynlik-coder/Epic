@@ -87,8 +87,8 @@ async def cmd_bounty(update:Update,ctx:ContextTypes.DEFAULT_TYPE):
     reply=update.message.reply_to_message
     if not reply or not reply.from_user: return await update.message.reply_text("❌ Bounty qo‘yish uchun o‘yinchi xabariga reply qiling.")
     try: amount=int((ctx.args or [])[0])
-    except (ValueError,IndexError): return await update.message.reply_text("❌ Foydalanish: /bounty <pul>")
-    if amount<=0 or amount>10_000_000: return await update.message.reply_text("❌ Pul miqdori 1–10 000 000 oralig‘ida bo‘lishi kerak.")
+    except (ValueError,IndexError): return await update.message.reply_text("❌ Foydalanish: /bounty <dollar>")
+    if amount<=0 or amount>10_000_000: return await update.message.reply_text("❌ Dollar miqdori 1–10 000 000 oralig‘ida bo‘lishi kerak.")
     target=getp(g,reply.from_user.id)
     owner=getp(g,update.effective_user.id)
     if not target or not target["alive"]: return await update.message.reply_text("❌ Bounty faqat tirik o‘yinchiga qo‘yiladi.")

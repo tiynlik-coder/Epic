@@ -12,7 +12,7 @@ def profile_markup():
     return InlineKeyboardMarkup([
         [b("🥷 Mening Geroyim",callback_data="menu:hero"),b("📊 Reyting",callback_data="menu:rating")],
         [b("🛒 Do‘kon",callback_data="menu:market"),b("🃏 Faol rol",callback_data="buy:active")],
-        [b("💎 Olmos sotib olish",callback_data="eco:diamonds"),b("💷 Pul sotib olish",callback_data="eco:money")],
+        [b("💎 Olmos sotib olish",callback_data="eco:diamonds"),b("💷 Dollar sotib olish",callback_data="eco:money")],
         [b("🎁 Sandiqlar",callback_data="eco:chests"),b("⭐️ VIP",callback_data="eco:vip")],
         [b("🎚 Buyumlarni yoqish/o‘chirish",callback_data="eco:items")],
         [b("🔄 Profil almashish",callback_data="eco:swap"),b("🌟 Premium guruhlar",callback_data="eco:groups")],
