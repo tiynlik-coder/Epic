@@ -26,13 +26,31 @@ DISCUSSION_TIME = 60
 VOTING_TIME = 30
 MAX_PLAYERS = 50
 MIN_PLAYERS = 4
-ADMIN_ID = int(os.getenv("ADMIN_ID", "5500951019"))
+
+# ---------------- DEPLOYMENT (.env) ----------------
+# Nothing deployment-specific is hard-coded: ids, channels and links all come from .env.
+def _ids(value):
+    return frozenset(int(x) for x in (value or "").replace(" ", "").split(",") if x.lstrip("-").isdigit())
+
+
+ADMIN_IDS = _ids(os.getenv("ADMIN_IDS") or os.getenv("ADMIN_ID"))
+
+
+def is_bot_admin(uid):
+    return uid in ADMIN_IDS
+
+
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+REDIS_URL = os.getenv("REDIS_URL", "").strip()
 DB_FILE = Path(os.getenv("EPIC_DB_FILE") or BASE_DIR / "epic_mafia.db")
 STATE_FILE = Path(os.getenv("EPIC_STATE_FILE") or BASE_DIR / "epic_mafia_state.json")
 NIGHT_IMAGE = BASE_DIR / "epic_mafia_night.png"
-EPIC_CHANNEL_URL = "https://t.me/epicmafianews"
-EPIC_SUPPORT_URL = "https://t.me/insitutdan"
-EPIC_PREMIUM_URL = os.getenv("EPIC_PREMIUM_URL", "").strip()
+# @username of the news channel: subscribers get double rewards. Empty = no channel bonus.
+CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME", "").strip()
+if CHANNEL_USERNAME and not CHANNEL_USERNAME.startswith("@"): CHANNEL_USERNAME = "@" + CHANNEL_USERNAME
+EPIC_CHANNEL_URL = os.getenv("CHANNEL_URL", "").strip() or (f"https://t.me/{CHANNEL_USERNAME[1:]}" if CHANNEL_USERNAME else "")
+EPIC_SUPPORT_URL = os.getenv("SUPPORT_URL", "").strip()
+EPIC_PREMIUM_URL = os.getenv("PREMIUM_URL", os.getenv("EPIC_PREMIUM_URL", "")).strip()
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 log = logging.getLogger("epic_mafia")

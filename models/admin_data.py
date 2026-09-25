@@ -4,7 +4,7 @@ import time
 
 from telegram.constants import ChatType
 
-from config import ADMIN_ID, ROLES
+from config import ROLES
 from models.database import db
 
 
@@ -19,9 +19,9 @@ _ADMIN_ROLE_ALIASES.update({
 })
 
 
-def admin_log(action, target=""):
+def admin_log(action, target="", admin_id=0):
     try:
-        con=db(); con.execute("INSERT INTO admin_logs(admin_id,action,target,created_at) VALUES(?,?,?,?)",(ADMIN_ID,action,str(target),time.time())); con.commit(); con.close()
+        con=db(); con.execute("INSERT INTO admin_logs(admin_id,action,target,created_at) VALUES(?,?,?,?)",(admin_id,action,str(target),time.time())); con.commit(); con.close()
     except Exception: pass
 
 

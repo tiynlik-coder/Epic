@@ -7,12 +7,12 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ChatType, ParseMode
 from telegram.ext import ContextTypes
 
-from config import ADMIN_ACTIVE_ROLE_PRICES, ADMIN_ID, EPIC_CHANNEL_URL, EPIC_SUPPORT_URL, HERO_PROTECTION_PRICE, MIN_PLAYERS, ROLES
+from config import is_bot_admin, ADMIN_ACTIVE_ROLE_PRICES, EPIC_CHANNEL_URL, EPIC_SUPPORT_URL, HERO_PROTECTION_PRICE, MIN_PLAYERS, ROLES
 from handlers.geroy_handlers import show_hero
 from keyboards.main_keyboard import main_menu
 from keyboards.user_keyboards import active_role_market_markup, market_keyboard, profile_markup, roles_menu_markup
 from models.database import db
-from models.users import buy, ensure_user, grant_first_start
+from models.users import buy, ensure_user, grant_first_start, spend
 from utils.game_logic import start_game
 from utils.lobby import join_lobby_deeplink, join_vs_deeplink
 from utils.profile import active_role_text, build_profile_text
@@ -31,7 +31,7 @@ async def cmd_start(update:Update,ctx:ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type in {ChatType.GROUP,ChatType.SUPERGROUP}:
         g=games.get(update.effective_chat.id)
         if g and g.get("phase")=="lobby":
-            if update.effective_user.id!=ADMIN_ID:
+            if not is_bot_admin(update.effective_user.id):
                 member=await ctx.bot.get_chat_member(update.effective_chat.id,update.effective_user.id)
                 if member.status not in {"administrator","creator"}:
                     return await update.message.reply_text("❌ O‘yinni faqat guruh adminlari boshlay oladi.")
@@ -130,9 +130,8 @@ async def cb_buy(update,ctx):
     uid=q.from_user.id
     mapping={"fake":("fake_document","money",200,"Soxta hujjat"),"protection":("protection","money",200,"Himoya"),"mask":("mask","diamonds",1,"Niqob"),"rifle":("rifle","diamonds",1,"Miltiq"),"hanging":("hanging_protection","diamonds",2,"Osilishdan himoya"),"supper":("supper_shield","diamonds",3,"Supper qalqon"),"hero_protection":("hero_protection","diamonds",HERO_PROTECTION_PRICE,"Geroydan himoya")}
     if item=="stats":
-        con=db(); r=con.execute("SELECT money FROM users WHERE user_id=?",(uid,)).fetchone()
-        if r and r[0]>=600: con.execute("UPDATE users SET money=money-600,wins=0,games=0 WHERE user_id=?",(uid,)); con.commit(); con.close(); return await cb_answer(q,"Statistika nollandi✅",True)
-        con.close(); return await cb_answer(q,"Sizda yetarli 💷 mavjud emas❌",True)
+        con=db(); cur=con.execute("UPDATE users SET money=money-600,wins=0,games=0 WHERE user_id=? AND money>=600",(uid,)); con.commit(); con.close()
+        return await cb_answer(q,"Statistika nollandi✅" if cur.rowcount==1 else "Sizda yetarli 💷 mavjud emas❌",True)
     key,currency,cost,title=mapping[item]; ok,msg=buy(uid,key,currency,cost)
     await cb_answer(q,(f"{title} xarid qilindi✅" if ok else f"Sizda yetarli {'💎' if currency=='diamonds' else '💷'} mavjud emas❌"),True)
 
@@ -143,11 +142,14 @@ async def cb_active_role(update,ctx):
     if a[1]=='back':
         return await send_market(q.message)
     if a[1]=='delete':
-        con=db(); r=con.execute("SELECT id,role FROM admin_active_roles WHERE user_id=? AND is_active=1 ORDER BY created_at,id LIMIT 1",(uid,)).fetchone()
-        bal=con.execute("SELECT money FROM users WHERE user_id=?",(uid,)).fetchone()
-        if not r: con.close(); return await cb_answer(q,"❌ Sizda faol rol yo‘q!",True)
-        if not bal or int(bal[0])<100: con.close(); return await cb_answer(q,"❌ Mablag‘ yetarli emas.",True)
-        con.execute("UPDATE users SET money=money-100 WHERE user_id=?",(uid,)); con.execute("UPDATE admin_active_roles SET is_active=0 WHERE id=?",(r[0],)); con.commit(); con.close()
+        con=db()
+        try:
+            con.begin()
+            r=con.execute("SELECT id,role FROM admin_active_roles WHERE user_id=? AND is_active=1 ORDER BY created_at,id LIMIT 1",(uid,)).fetchone()
+            if not r: con.rollback(); return await cb_answer(q,"❌ Sizda faol rol yo‘q!",True)
+            if not spend(uid,"money",100,con): con.rollback(); return await cb_answer(q,"❌ Mablag‘ yetarli emas.",True)
+            con.execute("UPDATE admin_active_roles SET is_active=0 WHERE id=?",(r[0],)); con.commit()
+        finally: con.close()
         return await safe_edit(q,active_role_text(uid),active_role_market_markup())
     if a[1]=='buy':
         role=a[2]
@@ -158,11 +160,9 @@ async def cb_active_role(update,ctx):
         if exists: return await cb_answer(q,"❌ Bu faol rol sizda allaqachon bor.",True)
         con=db()
         try:
-            con.execute("BEGIN IMMEDIATE")
-            row=con.execute(f"SELECT {currency} FROM users WHERE user_id=?",(uid,)).fetchone()
-            if not row or int(row[0] or 0)<price:
+            con.begin()
+            if not spend(uid,currency,price,con):
                 con.rollback(); return await cb_answer(q,f"❌ Sizda yetarli {'💎' if currency=='diamonds' else '💷'} mavjud emas.",True)
-            con.execute(f"UPDATE users SET {currency}={currency}-? WHERE user_id=?",(price,uid))
             con.execute("INSERT INTO admin_active_roles(user_id,role,is_active,created_at) VALUES(?,?,1,?)",(uid,role,time.time()))
             con.commit()
         finally: con.close()

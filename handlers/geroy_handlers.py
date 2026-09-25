@@ -1,6 +1,5 @@
 """Hero (Geroy) menu, market and rename flow."""
 
-import sqlite3
 import time
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -8,7 +7,8 @@ from telegram.constants import ChatType, ParseMode
 
 from config import HERO_BALL_PRICE, HERO_GUN_BASE, HERO_MARKET_FEE, HERO_NAME_PRICE, HERO_PRICE, HERO_SHIELD_BASE
 from keyboards.user_keyboards import hero_market_markup, hero_menu_markup
-from models.database import db
+from models.database import IntegrityError, db
+from models.users import add_balance, spend
 from models.heroes import hero_damage_range, hero_level, hero_max_shield, hero_row, hero_text
 from utils.telegram_utils import cb_answer, safe_edit
 
@@ -17,9 +17,8 @@ def _charge(uid, currency, cost, hero_sql, hero_args):
     """Take `cost` from the balance and apply the hero change in one transaction; False if funds are short."""
     con=db()
     try:
-        con.execute("BEGIN IMMEDIATE")
-        cur=con.execute(f"UPDATE users SET {currency}={currency}-? WHERE user_id=? AND {currency}>=?",(cost,uid,cost))
-        if cur.rowcount!=1:
+        con.begin()
+        if not spend(uid,currency,cost,con):
             con.rollback(); return False
         con.execute(hero_sql,hero_args)
         con.commit(); return True
@@ -35,16 +34,14 @@ async def hero_buy(q):
     uid=q.from_user.id
     con=db()
     try:
-        con.execute("BEGIN IMMEDIATE")
+        con.begin()
         if con.execute("SELECT 1 FROM heroes WHERE user_id=?",(uid,)).fetchone():
             con.rollback(); return await cb_answer(q,"Sizda Geroy allaqachon mavjud.",True)
-        r=con.execute("SELECT diamonds FROM users WHERE user_id=?",(uid,)).fetchone()
-        if not r or r[0] < HERO_PRICE:
+        if not spend(uid,"diamonds",HERO_PRICE,con):
             con.rollback(); return await cb_answer(q,"Sizda yetarli 💎 mavjud emas❌",True)
-        con.execute("UPDATE users SET diamonds=diamonds-? WHERE user_id=?",(HERO_PRICE,uid))
         con.execute("INSERT INTO heroes(user_id,name,created_at) VALUES(?,?,?)",(uid,"Nomsiz",time.time()))
         con.commit()
-    except sqlite3.IntegrityError:
+    except IntegrityError:
         con.rollback(); return await cb_answer(q,"Sizda Geroy allaqachon mavjud.",True)
     finally:
         con.close()
@@ -76,20 +73,18 @@ async def hero_callback(update,ctx):
         if hero_row(uid): return await cb_answer(q,"Avval o‘zingizdagi Geroyni boshqa yo‘l bilan topshirishingiz kerak.",True)
         con=db()
         try:
-            con.execute("BEGIN IMMEDIATE")
-            row2=con.execute("SELECT * FROM hero_market WHERE id=? AND active=1",(int(a[2]),)).fetchone()
+            con.begin()
+            # Claim the listing first: only one buyer can flip active 1 -> 0.
+            row2=con.execute("UPDATE hero_market SET active=0 WHERE id=? AND active=1 RETURNING seller_id,price",(int(a[2]),)).fetchone()
             if not row2:
                 con.rollback(); return await cb_answer(q,"Bu Geroy allaqachon sotilgan.",True)
             price=int(row2["price"]); seller=int(row2["seller_id"])
-            bal=con.execute("SELECT diamonds FROM users WHERE user_id=?",(uid,)).fetchone()
-            if not bal or bal[0] < price:
-                con.rollback(); return await cb_answer(q,"Sizda yetarli 💎 mavjud emas❌",True)
             if con.execute("SELECT 1 FROM heroes WHERE user_id=?",(uid,)).fetchone():
                 con.rollback(); return await cb_answer(q,"Avval o‘zingizdagi Geroyni topshiring.",True)
-            con.execute("UPDATE users SET diamonds=diamonds-? WHERE user_id=?",(price,uid))
-            con.execute("UPDATE users SET diamonds=diamonds+? WHERE user_id=?",(max(0,price-HERO_MARKET_FEE),seller))
+            if not spend(uid,"diamonds",price,con):
+                con.rollback(); return await cb_answer(q,"Sizda yetarli 💎 mavjud emas❌",True)
+            add_balance(seller,"diamonds",max(0,price-HERO_MARKET_FEE),con)
             con.execute("UPDATE heroes SET user_id=? WHERE user_id=?",(uid,seller))
-            con.execute("UPDATE hero_market SET active=0 WHERE id=? AND active=1",(row2["id"],))
             con.commit()
         finally:
             con.close()
@@ -99,7 +94,7 @@ async def hero_callback(update,ctx):
     if not h: return await cb_answer(q,"🥷 Sizda Geroy mavjud emas.",True)
     if action=="ball":
         # Level is computed in SQL from the stored ball (same formula as hero_level) so rapid taps stay consistent.
-        if not _charge(uid,"diamonds",HERO_BALL_PRICE,"UPDATE heroes SET ball=ball+1000,level=MAX(1,(ball+1000)/1100+1) WHERE user_id=?",(uid,)):
+        if not _charge(uid,"diamonds",HERO_BALL_PRICE,"UPDATE heroes SET ball=ball+1000,level=(ball+1000)/1100+1 WHERE user_id=?",(uid,)):
             return await cb_answer(q,"Sizda yetarli 💎 mavjud emas❌",True)
         return await show_hero(q,uid)
     if action=="shield":

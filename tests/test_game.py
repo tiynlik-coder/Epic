@@ -83,6 +83,16 @@ class InventoryTests(unittest.TestCase):
         self.assertIsNone(apply_protection(t, "Don", a))
         self.assertEqual(inv(53)["rifle"], 0); self.assertFalse(a["rifle"]); self.assertTrue(t["protected"])
 
+    def test_spend_never_overdraws(self):
+        from models.users import spend, transfer
+        new_player(U(55)); new_player(U(56))
+        con = db(); con.execute("UPDATE users SET money=100 WHERE user_id IN (55,56)"); con.commit(); con.close()
+        self.assertTrue(spend(55, "money", 60)); self.assertFalse(spend(55, "money", 60))
+        self.assertEqual(get_user(55)["money"], 40)
+        self.assertFalse(transfer(55, 56, "money", 40, fee=10))  # 50 needed, 40 available
+        self.assertTrue(transfer(55, 56, "money", 30, fee=10))
+        self.assertEqual((get_user(55)["money"], get_user(56)["money"]), (0, 130))
+
     def test_cancel_refunds_bounties(self):
         new_player(U(54))
         con = db(); con.execute("UPDATE users SET money=0 WHERE user_id=54"); con.commit(); con.close()
@@ -116,7 +126,10 @@ class EndGameTests(unittest.TestCase):
         for i, r in [(61, "Shifokor"), (62, "Tabib")]:
             p = new_player(U(i)); p["role"] = r; g["players"][i] = p
         con = db(); con.execute("UPDATE users SET money=0 WHERE user_id IN (61,62)"); con.commit(); con.close()
-        asyncio.run(end_game(App(), g))
+        import utils.telegram_utils as tu
+        tu.CHANNEL_USERNAME = "@test_channel"
+        try: asyncio.run(end_game(App(), g))
+        finally: tu.CHANNEL_USERNAME = ""
         self.assertEqual(get_user(61)["money"], 200)  # channel member: 2x
         self.assertEqual(get_user(62)["money"], 100)
 

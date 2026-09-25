@@ -2,7 +2,7 @@
 
 import html
 
-from config import EMOJI, WIN_REWARD
+from config import CHANNEL_USERNAME, EMOJI, WIN_REWARD
 from models.admin_data import active_roles_for
 from models.users import get_user, inv
 from utils.telegram_utils import is_epic_channel_member
@@ -47,8 +47,8 @@ def profile_text(uid):
 
 async def build_profile_text(bot, uid: int) -> str:
     text = profile_text(uid)
-    if not await is_epic_channel_member(bot, uid):
-        text += f"\n\nKanalga obuna bo‘lsangiz g‘alaba uchun 2x mukofot ({WIN_REWARD*2}💷) olasiz!\nKanal @epicmafianews"
+    if CHANNEL_USERNAME and not await is_epic_channel_member(bot, uid):
+        text += f"\n\nKanalga obuna bo‘lsangiz g‘alaba uchun 2x mukofot ({WIN_REWARD*2}💷) olasiz!\nKanal {CHANNEL_USERNAME}"
     return text
 
 

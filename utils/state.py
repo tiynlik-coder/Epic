@@ -4,7 +4,7 @@ import json
 import random
 import time
 
-from config import STATE_FILE, log
+from config import REDIS_URL, STATE_FILE, log
 from models.database import db
 
 
@@ -18,17 +18,40 @@ def _json_game(g):
     return out
 
 
+# Running games survive restarts: kept in Redis when REDIS_URL is set, else in STATE_FILE.
+REDIS_STATE_KEY = "epic_mafia:games"
+_redis = None
+
+
+def _redis_client():
+    global _redis
+    if _redis is None and REDIS_URL:
+        import redis
+        _redis = redis.Redis.from_url(REDIS_URL, decode_responses=True)
+    return _redis
+
+
 def persist_games():
     try:
-        STATE_FILE.write_text(json.dumps({str(cid):_json_game(g) for cid,g in games.items() if g.get("phase") not in {"ended","cancelled"}}, ensure_ascii=False), encoding="utf-8")
+        payload=json.dumps({str(cid):_json_game(g) for cid,g in games.items() if g.get("phase") not in {"ended","cancelled"}}, ensure_ascii=False)
+        r=_redis_client()
+        if r: r.set(REDIS_STATE_KEY, payload)
+        else: STATE_FILE.write_text(payload, encoding="utf-8")
     except Exception:
         log.exception("state save failed")
 
 
+def _read_state():
+    r=_redis_client()
+    if r: return r.get(REDIS_STATE_KEY)
+    return STATE_FILE.read_text(encoding="utf-8") if STATE_FILE.exists() else None
+
+
 def load_games_state():
-    if not STATE_FILE.exists(): return
     try:
-        raw=json.loads(STATE_FILE.read_text(encoding="utf-8"))
+        text=_read_state()
+        if not text: return
+        raw=json.loads(text)
         for cid,g in raw.items():
             g["chat_id"]=int(cid); g["players"]={int(uid):p for uid,p in g.get("players",{}).items()}
             g["jobs"]=[]; g.setdefault("next_ability_swaps",{}); g.setdefault("veyron_notice",[]); g.setdefault("bounties",[])

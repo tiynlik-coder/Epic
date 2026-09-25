@@ -7,9 +7,9 @@ from telegram.constants import ChatType, ParseMode
 from telegram.error import TelegramError
 from telegram.ext import ContextTypes
 
-from config import ADMIN_ID, MAX_PLAYERS
+from config import MAX_PLAYERS, is_bot_admin
 from keyboards.game_keyboard import modes_keyboard
-from models.database import db
+from models.users import spend
 from models.heroes import hero_row
 from utils.lobby import create_lobby
 from utils.night_actions import veyron_notice_job
@@ -69,18 +69,8 @@ async def cmd_bounty(update:Update,ctx:ContextTypes.DEFAULT_TYPE):
     owner=getp(g,update.effective_user.id)
     if not target or not target["alive"]: return await update.message.reply_text("❌ Bounty faqat tirik o‘yinchiga qo‘yiladi.")
     if not owner or not owner["alive"]: return await update.message.reply_text("❌ Faqat tirik o‘yinchi bounty qo‘ya oladi.")
-    con=db()
-    try:
-        con.execute("BEGIN IMMEDIATE")
-        row=con.execute("SELECT money FROM users WHERE user_id=?",(owner["id"],)).fetchone()
-        if not row or row[0]<amount:
-            con.rollback(); return await update.message.reply_text("❌ Hisobingizda yetarli mablag‘ mavjud emas.")
-        con.execute("UPDATE users SET money=money-? WHERE user_id=? AND money>=?",(amount,owner["id"],amount))
-        if con.total_changes != 1:
-            con.rollback(); return await update.message.reply_text("❌ Hisobingizda yetarli mablag‘ mavjud emas.")
-        con.commit()
-    finally:
-        con.close()
+    if not spend(owner["id"],"money",amount):
+        return await update.message.reply_text("❌ Hisobingizda yetarli mablag‘ mavjud emas.")
     g.setdefault("bounties",[]).append({"owner":owner["id"],"target":target["id"],"amount":amount,"created":time.time()})
     persist_games()
     await update.message.reply_text(f"🎯 {visible_name(g,target)}ni o‘ldirganga {amount}💷 mukofot beriladi!")
@@ -346,7 +336,7 @@ async def cb_folbin_msg(update,ctx):
 
 async def cmd_stop(update,ctx):
     if update.effective_chat.type not in {ChatType.GROUP,ChatType.SUPERGROUP}:return
-    if update.effective_user.id!=ADMIN_ID:
+    if not is_bot_admin(update.effective_user.id):
         member=await ctx.bot.get_chat_member(update.effective_chat.id,update.effective_user.id)
         if member.status not in {"administrator","creator"}:
             return await update.message.reply_text("❌ Bu buyruq faqat guruh adminlari uchun.")

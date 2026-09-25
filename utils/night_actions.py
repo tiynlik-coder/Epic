@@ -10,7 +10,7 @@ from config import HARMFUL_ACTION_ROLES, MAFIA, ORDINARY_KILLERS, TOWN
 from keyboards.game_keyboard import name_buttons
 from models.database import db
 from models.heroes import hero_damage_range, hero_level, hero_max_shield, hero_row
-from models.users import consume_inventory, inv, set_inv
+from models.users import add_item, consume_inventory, get_user, inv, transfer
 from utils.players import ability_role, dead_targets, getp, kill_player, living, mention, role_label, visible_name
 from utils.state import games, persist_games
 from utils.telegram_utils import send_private
@@ -250,18 +250,9 @@ async def resolve_night_effects(ctx,g):
             target["temp_hp_bonus"] = target.get("temp_hp_bonus",0) + 50
         elif er=="Undiruvchi":
             # Fictional in-game money action.
-            con=db()
-            try:
-                con.execute("BEGIN IMMEDIATE")
-                row=con.execute("SELECT money FROM users WHERE user_id=?",(target["id"],)).fetchone()
-                amount=min(random.randint(1,200),int(row[0] or 0) if row else 0)
-                if amount>0:
-                    con.execute("UPDATE users SET money=money-? WHERE user_id=?",(amount,target["id"]))
-                    con.execute("UPDATE users SET money=money+? WHERE user_id=?",(amount,actor["id"]))
-                con.commit()
-            finally:
-                con.close()
-            if amount>0: await send_private(ctx.bot,actor["id"],f"💰 Siz {amount}💷 undirdingiz.")
+            row=get_user(target["id"])
+            amount=min(random.randint(1,200),int(row["money"] or 0) if row else 0)
+            if amount>0 and transfer(target["id"],actor["id"],"money",amount): await send_private(ctx.bot,actor["id"],f"💰 Siz {amount}💷 undirdingiz.")
         elif er=="Zodagon":
             if target["role"] in TOWN: await ctx.bot.send_message(g["chat_id"],"👑 Zodagon tanlovida adashdi.")
             else:
@@ -283,7 +274,7 @@ async def resolve_night_effects(ctx,g):
             gifts=["protection","hanging_protection","supper_shield","mask","rifle","active_role"]
             gift=random.choice(gifts)
             if target.get("alive"):
-                d=inv(target["id"]); d[gift]=int(d.get(gift,0))+1; set_inv(target["id"],d)
+                add_item(target["id"],gift)
                 await send_private(ctx.bot,target["id"],f"🎅 Sizga tasodifiy sovg‘a keldi: {gift} 🎁")
         elif er=="Sotqin":
             if target["role"] in MAFIA or target["role"] in HARMFUL_ACTION_ROLES:

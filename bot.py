@@ -7,9 +7,10 @@ import os
 import sys
 
 from telegram import BotCommand, BotCommandScopeAllGroupChats, BotCommandScopeAllPrivateChats, BotCommandScopeChat, Update
+from telegram.error import TelegramError
 from telegram.ext import ApplicationBuilder
 
-from config import ADMIN_ID, log
+from config import ADMIN_IDS, log
 from handlers import register_handlers
 from models.database import init_db
 from utils.game_loop import resume_games
@@ -24,7 +25,9 @@ async def setup_bot_commands(app):
         BotCommand("profile", "Profilni ko‘rish"),
     ]
     await app.bot.set_my_commands(private_cmds, scope=BotCommandScopeAllPrivateChats())
-    await app.bot.set_my_commands(private_cmds, scope=BotCommandScopeChat(ADMIN_ID))
+    for admin_id in ADMIN_IDS:
+        try: await app.bot.set_my_commands(private_cmds, scope=BotCommandScopeChat(admin_id))
+        except TelegramError: log.warning("admin %s has not started the bot yet", admin_id)
 
     group_commands = [
         BotCommand("start", "Botni qayta ishga tushirish"),

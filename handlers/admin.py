@@ -9,7 +9,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ChatType
 from telegram.error import TelegramError
 
-from config import ADMIN_ID, EMOJI
+from config import EMOJI, is_bot_admin
 from keyboards.admin_keyboard import admin_menu_markup
 from models.admin_data import _blocked_user, _role_from_text, active_roles_for, admin_log, forced_role
 from models.database import db
@@ -20,7 +20,7 @@ from utils.telegram_utils import cb_answer, safe_edit, unpin_lobby
 
 
 def _admin_only(update):
-    return bool(update.effective_user and update.effective_user.id == ADMIN_ID)
+    return bool(update.effective_user and is_bot_admin(update.effective_user.id))
 
 
 def _target_id(update):
@@ -100,7 +100,7 @@ async def cmd_admin(update,ctx):
 
 async def admin_callback(update,ctx):
     q=update.callback_query
-    if q.from_user.id!=ADMIN_ID: return await cb_answer(q,"Ruxsat yo‘q.",True)
+    if not is_bot_admin(q.from_user.id): return await cb_answer(q,"Ruxsat yo‘q.",True)
     await cb_answer(q)
     key=q.data.split(":",1)[1]
     if key=='home': return await safe_edit(q,"🛠 <b>Epic Mafia Admin Panel</b>",admin_menu_markup())
@@ -155,7 +155,7 @@ async def cmd_aktiv(update,ctx):
     raw=(update.message.text or '').split(maxsplit=1)
     role=_role_from_text(raw[1] if len(raw)>1 else '')
     if not uid or not role: return await update.message.reply_text("❌ Reply qiling va /aktiv <rol> yozing.\nMasalan: /aktiv Don")
-    con=db(); con.execute("INSERT INTO admin_forced_roles(user_id,role,set_by,created_at) VALUES(?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET role=excluded.role,set_by=excluded.set_by,created_at=excluded.created_at",(uid,role,ADMIN_ID,time.time())); con.commit(); con.close(); admin_log('aktiv',f'{uid}:{role}')
+    con=db(); con.execute("INSERT INTO admin_forced_roles(user_id,role,set_by,created_at) VALUES(?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET role=excluded.role,set_by=excluded.set_by,created_at=excluded.created_at",(uid,role,update.effective_user.id,time.time())); con.commit(); con.close(); admin_log('aktiv',f'{uid}:{role}')
     await update.message.reply_text(f"✅ {uid} uchun doimiy aktiv rol: {EMOJI.get(role,'🎭')} {role}")
 
 
@@ -171,7 +171,7 @@ async def cmd_block(update,ctx):
     if not _admin_only(update) or not update.message: return
     uid=_target_id(update)
     if not uid: return await update.message.reply_text("❌ /block ID yoki user xabariga reply qiling.")
-    con=db(); con.execute("INSERT OR REPLACE INTO admin_blocked_users(user_id,reason,created_at) VALUES(?,?,?)",(uid,'admin',time.time())); con.commit(); con.close(); admin_log('block_user',uid)
+    con=db(); con.execute("INSERT INTO admin_blocked_users(user_id,reason,created_at) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET reason=excluded.reason,created_at=excluded.created_at",(uid,'admin',time.time())); con.commit(); con.close(); admin_log('block_user',uid)
     # Remove the blocked user from current lobbies/games.
     for g in list(games.values()):
         p=g.get('players',{}).get(uid)
@@ -198,7 +198,7 @@ async def cmd_gblock(update,ctx):
         nums=_nums(update.message.text or '')
         if not nums: return await update.message.reply_text("❌ /gblock — guruhda yuboring yoki /gblock <chat_id> yozing.")
         cid=nums[0]; title=str(cid)
-    con=db(); con.execute("INSERT OR REPLACE INTO admin_blocked_groups(chat_id,title,created_at) VALUES(?,?,?)",(cid,title,time.time())); con.commit(); con.close(); admin_log('block_group',cid)
+    con=db(); con.execute("INSERT INTO admin_blocked_groups(chat_id,title,created_at) VALUES(?,?,?) ON CONFLICT(chat_id) DO UPDATE SET title=excluded.title,created_at=excluded.created_at",(cid,title,time.time())); con.commit(); con.close(); admin_log('block_group',cid)
     g=games.get(cid)
     if g: cancel_game(g); await unpin_lobby(ctx.bot,g)
     await _ok(update,ctx,f"🚫 Guruh ({html.escape(str(title))}) muvaffaqiyatli bloklandi✅")
@@ -219,7 +219,7 @@ async def cmd_gunblock(update,ctx):
 
 async def cmd_checkuser(update,ctx):
     if not _admin_only(update): return
-    uid=_target_id(update) or ADMIN_ID; r=get_user(uid)
+    uid=_target_id(update) or update.effective_user.id; r=get_user(uid)
     if not r: return await update.message.reply_text("❌ Foydalanuvchi topilmadi.")
     con=db(); blocked=bool(con.execute("SELECT 1 FROM admin_blocked_users WHERE user_id=?",(uid,)).fetchone()); forced=con.execute("SELECT role FROM admin_forced_roles WHERE user_id=?",(uid,)).fetchone(); ar=con.execute("SELECT role FROM admin_active_roles WHERE user_id=? AND is_active=1",(uid,)).fetchall(); con.close()
     await update.message.reply_text(f"👤 <b>{html.escape(str(r['first_name'] or 'Nomsiz'))}</b>\nID: <code>{uid}</code>\n💷 {r['money']}\n💎 {r['diamonds']}\n🪙 {r['coins']}\n🎮 {r['games']}\n🏆 {r['wins']}\n🚫 Blok: {'Ha' if blocked else 'Yo‘q'}\n🎭 /aktiv: {forced[0] if forced else 'Yo‘q'}\n🃏 Faol: {', '.join(x[0] for x in ar) if ar else 'Yo‘q'}")
@@ -238,7 +238,7 @@ async def _give_new(update,ctx,field,symbol,label):
     cmd=(update.message.text or '').split(maxsplit=1)[0] if (update.message.text or '').split() else '/give'
     if not uid or amount is None or amount<=0:
         return await update.message.reply_text(f"❌ Foydalanish: {cmd} ID amount yoki user xabariga reply qilib {cmd} amount")
-    con=db(); con.execute("INSERT OR IGNORE INTO users(user_id) VALUES(?)",(uid,)); con.execute(f"UPDATE users SET {field}={field}+? WHERE user_id=?",(amount,uid)); con.commit(); con.close(); admin_log('give',f'{uid}:{field}:{amount}')
+    con=db(); con.execute("INSERT INTO users(user_id) VALUES(?) ON CONFLICT DO NOTHING",(uid,)); con.execute(f"UPDATE users SET {field}={field}+? WHERE user_id=?",(amount,uid)); con.commit(); con.close(); admin_log('give',f'{uid}:{field}:{amount}')
     await _ok(update,ctx,f"{_display_name(uid)}ga {amount}{symbol} ({label}) muvaffaqiyatli yuborildi✅")
 
 
@@ -265,7 +265,7 @@ async def cmd_sgeroy(update,ctx):
     if not 1<=level<=30:
         return await update.message.reply_text("❌ Geroy darajasi 1–30 oralig‘ida bo‘lishi kerak.")
     ball=(level-1)*1100; mx=hero_max_shield(level)
-    con=db(); con.execute("INSERT OR IGNORE INTO users(user_id) VALUES(?)",(uid,))
+    con=db(); con.execute("INSERT INTO users(user_id) VALUES(?) ON CONFLICT DO NOTHING",(uid,))
     h=con.execute("SELECT user_id FROM heroes WHERE user_id=?",(uid,)).fetchone()
     if h:
         con.execute("UPDATE heroes SET level=?,ball=?,patron=10,shield=? WHERE user_id=?",(level,ball,mx,uid))
@@ -294,7 +294,7 @@ async def _bust_field(update,ctx,field,symbol,label):
         nums=_nums(update.message.text or '')
         if nums: uid=nums[0]
     if not uid: return await update.message.reply_text("❌ ID yoki user xabariga reply qiling.")
-    con=db(); con.execute("INSERT OR IGNORE INTO users(user_id) VALUES(?)",(uid,)); con.execute(f"UPDATE users SET {field}=0 WHERE user_id=?",(uid,)); con.commit(); con.close(); admin_log('bust_'+field,uid)
+    con=db(); con.execute("INSERT INTO users(user_id) VALUES(?) ON CONFLICT DO NOTHING",(uid,)); con.execute(f"UPDATE users SET {field}=0 WHERE user_id=?",(uid,)); con.commit(); con.close(); admin_log('bust_'+field,uid)
     await _ok(update,ctx,f"{_display_name(uid)}ning barcha {symbol} ({label}) si muvaffaqiyatli 0 qilindi✅")
 
 
@@ -310,7 +310,7 @@ async def cmd_fullbust(update,ctx):
         nums=_nums(update.message.text or '')
         if nums: uid=nums[0]
     if not uid: return await update.message.reply_text("❌ /fullbust ID yoki user xabariga reply qiling.")
-    con=db(); con.execute("INSERT OR IGNORE INTO users(user_id) VALUES(?)",(uid,))
+    con=db(); con.execute("INSERT INTO users(user_id) VALUES(?) ON CONFLICT DO NOTHING",(uid,))
     con.execute("UPDATE users SET money=0,diamonds=0,coins=0,wins=0,games=0,inventory='{}',protection=0,fake_document=0,hanging_protection=0,rifle=0,mask=0,supper_shield=0,active_role=0,hero_protection=0,medicine_protection=0 WHERE user_id=?",(uid,))
     con.execute("DELETE FROM heroes WHERE user_id=?",(uid,))
     con.execute("DELETE FROM admin_forced_roles WHERE user_id=?",(uid,))
@@ -348,7 +348,7 @@ async def cmd_vip(update,ctx,remove=False):
     if not uid: return await update.message.reply_text("/vip ID")
     con=db()
     if remove: cur=con.execute("DELETE FROM admin_vips WHERE user_id=?",(uid,))
-    else: cur=con.execute("INSERT OR IGNORE INTO admin_vips(user_id,created_at) VALUES(?,?)",(uid,time.time()))
+    else: cur=con.execute("INSERT INTO admin_vips(user_id,created_at) VALUES(?,?) ON CONFLICT DO NOTHING",(uid,time.time()))
     con.commit(); con.close(); admin_log('unvip' if remove else 'vip',uid); await update.message.reply_text("🔓 VIP olib tashlandi." if remove else "🌟 VIP berildi.")
 
 
@@ -452,9 +452,9 @@ async def admin_text_handler(update,ctx):
 
 async def cmd_zapravka1(update,ctx):
     if not _admin_only(update): return
-    con=db(); con.execute("INSERT OR IGNORE INTO users(user_id) VALUES(?)",(ADMIN_ID,)); con.execute("UPDATE users SET diamonds=diamonds+100 WHERE user_id=?",(ADMIN_ID,)); con.commit(); con.close(); await update.message.reply_text("✅ Sizga 100 💎 berildi!")
+    con=db(); con.execute("INSERT INTO users(user_id) VALUES(?) ON CONFLICT DO NOTHING",(update.effective_user.id,)); con.execute("UPDATE users SET diamonds=diamonds+100 WHERE user_id=?",(update.effective_user.id,)); con.commit(); con.close(); await update.message.reply_text("✅ Sizga 100 💎 berildi!")
 
 
 async def cmd_zapravka7(update,ctx):
     if not _admin_only(update): return
-    con=db(); con.execute("INSERT OR IGNORE INTO users(user_id) VALUES(?)",(ADMIN_ID,)); con.execute("UPDATE users SET money=money+10000 WHERE user_id=?",(ADMIN_ID,)); con.commit(); con.close(); await update.message.reply_text("✅ Sizga 10 000 💷 berildi!")
+    con=db(); con.execute("INSERT INTO users(user_id) VALUES(?) ON CONFLICT DO NOTHING",(update.effective_user.id,)); con.execute("UPDATE users SET money=money+10000 WHERE user_id=?",(update.effective_user.id,)); con.commit(); con.close(); await update.message.reply_text("✅ Sizga 10 000 💷 berildi!")

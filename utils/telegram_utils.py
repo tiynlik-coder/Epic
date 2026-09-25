@@ -6,7 +6,7 @@ import time
 from telegram.constants import ParseMode
 from telegram.error import BadRequest, TelegramError
 
-from config import NIGHT_IMAGE, log
+from config import CHANNEL_USERNAME, NIGHT_IMAGE, log
 
 
 _PRIVATE_SEND_LOCK = asyncio.Lock()
@@ -87,9 +87,10 @@ async def group_return_url(bot, g):
 
 
 async def is_epic_channel_member(bot, user_id: int) -> bool:
-    """Check @epicmafianews membership. Bot must be an admin/member of the channel."""
+    """Check CHANNEL_USERNAME membership. Bot must be an admin/member of the channel."""
+    if not CHANNEL_USERNAME: return False
     try:
-        m = await bot.get_chat_member("@epicmafianews", user_id)
+        m = await bot.get_chat_member(CHANNEL_USERNAME, user_id)
         if m.status in {"creator", "administrator", "member"}:
             return True
         if m.status == "restricted" and getattr(m, "is_member", False):

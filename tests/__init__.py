@@ -1,4 +1,7 @@
-"""Tests run against a throwaway database: python -m unittest discover tests"""
+"""Tests run against a throwaway database: python -m unittest discover tests
+
+SQLite by default; EPIC_TEST_DATABASE_URL=postgresql://... runs them against PostgreSQL.
+"""
 import os
 import tempfile
 
@@ -6,3 +9,6 @@ _tmp = tempfile.mkdtemp(prefix="epic_test_")
 os.environ["EPIC_DB_FILE"] = os.path.join(_tmp, "test.db")
 os.environ["EPIC_STATE_FILE"] = os.path.join(_tmp, "state.json")
 os.environ.setdefault("BOT_TOKEN", "123:TEST")
+# Never touch the real databases from .env; EPIC_TEST_DATABASE_URL runs the suite on PostgreSQL.
+os.environ["DATABASE_URL"] = os.getenv("EPIC_TEST_DATABASE_URL", "")
+os.environ["REDIS_URL"] = ""

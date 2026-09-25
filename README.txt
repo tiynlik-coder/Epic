@@ -1,18 +1,22 @@
-EPIC MAFIA — Telegram bot (python-telegram-bot 22, SQLite, polling)
+EPIC MAFIA — Telegram bot (python-telegram-bot 22, PostgreSQL + Redis, polling)
 
 Ishga tushirish
   pip install -r requirements.txt
-  .env fayliga:  BOT_TOKEN=123456:ABC...
+  cp .env.example .env      va qiymatlarni to'ldiring
   python bot.py              (eski `python main.py` ham ishlaydi)
 
 Testlar
-  python -m unittest discover tests      (vaqtinchalik bazada ishlaydi)
+  python -m unittest discover tests      (vaqtinchalik SQLite bazada ishlaydi)
+  EPIC_TEST_DATABASE_URL=postgresql://... python -m unittest discover tests   (Postgres'da)
 
-.env sozlamalari (ixtiyoriy)
+.env sozlamalari (to'liq ro'yxat: .env.example). Kodda hech qanday ID yoki kanal yozilmagan.
   BOT_TOKEN          — bot tokeni (majburiy)
-  ADMIN_ID           — bot egasi (standart: 5500951019)
-  EPIC_PREMIUM_URL   — "Premium guruhlar" tugmasi havolasi
-  EPIC_DB_FILE, EPIC_STATE_FILE — baza / o'yin holati fayllari yo'li
+  ADMIN_IDS          — bot adminlari, vergul bilan
+  DATABASE_URL       — postgresql://user:parol@host:5432/db  (bo'sh = SQLite fayl)
+  REDIS_URL          — redis://localhost:6379/0  (bo'sh = o'yin holati JSON faylda)
+  CHANNEL_USERNAME   — @kanal: obunachilarga 2x mukofot (bo'sh = bonus yo'q)
+  CHANNEL_URL, SUPPORT_URL, PREMIUM_URL — tugmalar havolalari
+  EPIC_DB_FILE, EPIC_STATE_FILE — SQLite / JSON fayllar yo'li
 
 Tuzilish (raqamlar — qatorlar soni)
 
@@ -20,8 +24,7 @@ Epic/
 ├── bot.py                   88  ← kirish nuqtasi: ilova, buyruqlar menyusi, polling
 ├── config.py               110  ← .env, sozlamalar, rollar va fraksiyalar, narxlar
 ├── main.py                   5  ← eski kirish nuqtasi (bot.py ni chaqiradi)
-├── epic_mafia.db                ← SQLite baza
-├── epic_mafia_state.json        ← restartdan keyin tiklanadigan o'yinlar
+├── .env.example                 ← barcha sozlamalar namunasi
 │
 ├── handlers/                    ← Telegram buyruq va tugmalarini qabul qiladi
 │   ├── __init__.py         164  ← handlerlarni ulash tartibi (guard'lar birinchi)
@@ -35,7 +38,7 @@ Epic/
 │   └── block_guard.py       27  ← bloklangan user/guruhni hamma handlerdan oldin to'xtatadi
 │
 ├── models/                      ← baza
-│   ├── database.py          77  ← ulanish, jadvallar, migratsiyalar
+│   ├── database.py         190  ← Postgres/SQLite ulanishi, jadvallar
 │   ├── users.py             74  ← balans, statistika, inventar
 │   ├── heroes.py            42  ← geroy yozuvlari va daraja hisobi
 │   └── admin_data.py        64  ← loglar, bloklar, majburiy/sotib olingan rollar
