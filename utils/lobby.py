@@ -94,6 +94,13 @@ async def start_if_full(app, g):
         await start_game(app,g)
 
 
+async def delete_command(update):
+    """Remove the /game-style command that opened or re-posted the lobby (not the bot's own /vsgame prompt)."""
+    if not update.message: return
+    try: await update.message.delete()
+    except TelegramError: pass
+
+
 async def create_lobby(update, ctx, mode=None, mode_value=None):
     if update.effective_chat.type not in {ChatType.GROUP,ChatType.SUPERGROUP}: return
     chat=update.effective_chat
@@ -103,6 +110,7 @@ async def create_lobby(update, ctx, mode=None, mode_value=None):
     old=games.get(chat.id)
     if old and old.get("phase")=="lobby":
         # Registration scrolled up in a busy chat: bring the same list (with everyone registered) down again.
+        await delete_command(update)
         return await repost_lobby(ctx.bot,old)
     if old and old.get("phase") not in {"ended","cancelled"}:
         return await update.effective_message.reply_text("⚠️ Bu guruhda o‘yin davom etmoqda.")
@@ -113,7 +121,8 @@ async def create_lobby(update, ctx, mode=None, mode_value=None):
     games[chat.id]=g
     me=await ctx.bot.get_me()
     text=vs_lobby_text(g) if mode == "vs" else standard_lobby_text(g)
-    msg=await update.effective_message.reply_text(text,reply_markup=lobby_markup(g,me.username or ""),parse_mode=ParseMode.HTML)
+    msg=await ctx.bot.send_message(chat.id,text,reply_markup=lobby_markup(g,me.username or ""),parse_mode=ParseMode.HTML)
+    await delete_command(update)
     g["lobby_message_id"]=msg.message_id
     # Pin the registration message like the reference lobby.
     try:

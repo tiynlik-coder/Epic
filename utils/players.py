@@ -24,7 +24,7 @@ PLAYER_DEFAULTS = {
     # Items bought in the market (set at game start), consumed when they fire.
     "killer_protection":False,"slip_protection":False,"medicine":False,
     # Role state brought over from Baku Mafia.
-    "won_flag":False,"tulki_used":False,"pending_mode":None,
+    "won_flag":False,"tulki_used":False,"self_healed":False,"pending_mode":None,
     "kimyo_shield":None,"lab_shield":None,"action_cancelled":False,
 }
 
@@ -102,18 +102,24 @@ def alive_counts(g):
     return t,m,s
 
 
+def living_list(g):
+    """Numbered living players, each name a link to the profile ("3. Ali")."""
+    return "\n".join(f"{p.get('num','')}. {visible_mention(g,p)}" for p in sorted(living(g),key=lambda x:x.get("num",0)))
+
+
 def role_lists(g):
+    """Morning summary per side: a "Tinch aholilar (2)" heading, then that side's roles on one line."""
     if g.get("mode")=="zombie":
         # Zombie mode hides every living role; Zombies participate in the day like everyone else.
-        alive=living(g)
-        return ("🟢 Tinch aholi ["+str(len(alive))+"]", "", "")
+        return []
     t,m,s=alive_counts(g)
     def rl(p):
         prefix = team_icon(p) + " " if g.get("mode") == "vs" and p.get("team") else ""
         return prefix + role_label(p["role"])
-    return ("🟢 Tinch aholi ["+str(len(t))+"]\n"+"\n".join(rl(p) for p in t) if t else "🟢 Tinch aholi [0]",
-            "🔴 Mafia ["+str(len(m))+"]\n"+"\n".join(rl(p) for p in m) if m else "🔴 Mafia [0]",
-            "🟣 Yakkalar ["+str(len(s))+"]\n"+"\n".join(rl(p) for p in s) if s else "🟣 Yakkalar [0]")
+    out=[]
+    for title,group in (("Tinch aholilar",t),("Mafialar",m),("Yakkalar",s)):
+        out.append(f"{title} ({len(group)})"+("\n"+", ".join(rl(p) for p in group) if group else ""))
+    return out
 
 
 def kill_player(p, reason=""):

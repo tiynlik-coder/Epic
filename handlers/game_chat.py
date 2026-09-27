@@ -3,6 +3,7 @@
 import html
 import time
 
+from telegram import ChatPermissions
 from telegram.constants import ChatType, ParseMode
 from telegram.error import TelegramError
 from telegram.ext import ApplicationHandlerStop
@@ -39,18 +40,35 @@ async def private_game_text(update, ctx):
         return
 
 
+MUTE_SECONDS = 30
+
+
+async def mute_briefly(bot, chat_id, user_id):
+    """Read-only for MUTE_SECONDS. Telegram treats restrictions under 30 s as permanent, so add one second."""
+    try: await bot.restrict_chat_member(chat_id,user_id,ChatPermissions.no_permissions(),until_date=int(time.time())+MUTE_SECONDS+1)
+    except TelegramError: pass
+
+
 async def group_write_guard(update, ctx):
-    """During a game, delete group messages from people the chat's write rule does not allow."""
+    """During a game: people outside it (or dead) may not write at all, living players not at night.
+    Such a message is deleted and its author muted for 30 seconds. Otherwise the chat's write rule applies."""
     msg=update.effective_message; chat=update.effective_chat; user=update.effective_user
     if not msg or not user or not chat or chat.type not in {ChatType.GROUP,ChatType.SUPERGROUP}: return
     if msg.text and msg.text.startswith("/"): return
     g=games.get(chat.id)
     if not g or g.get("phase") in {"lobby","starting","ended","cancelled"}: return
-    level=settings_of(g).get("write_night" if g.get("phase")=="night" else "write_day","all")
-    if level=="all": return
+    if user.is_bot or msg.sender_chat or await is_chat_admin(ctx.bot,chat.id,user.id): return
     p=getp(g,user.id)
-    allowed={"players":bool(p),"alive":bool(p and p.get("alive") and not p.get("blocked"))}.get(level,False)
-    if allowed or await is_chat_admin(ctx.bot,chat.id,user.id): return
+    night=g.get("phase") in {"night","afsungar"}
+    in_game=bool(p and p.get("alive"))
+    if not in_game or night:
+        try: await msg.delete()
+        except TelegramError: pass
+        await mute_briefly(ctx.bot,chat.id,user.id)
+        raise ApplicationHandlerStop
+    level=settings_of(g).get("write_day","all")
+    allowed={"all":True,"players":True,"alive":not p.get("blocked")}.get(level,False)
+    if allowed: return
     try: await msg.delete()
     except TelegramError: return
     raise ApplicationHandlerStop

@@ -15,7 +15,7 @@ from models.chat_settings import get_settings
 from utils.game_logic import after_vote, can_vote, confirm_markup, promote_successors, settings_of, take_along
 from utils.lobby import create_lobby, refresh_lobby
 from utils.permissions import has_perm, is_chat_admin
-from utils.night_actions import ACTION_MODES, NIGHT_PROMPTS, konchi_kons, veyron_notice_job
+from utils.night_actions import ACTION_MODES, NIGHT_PROMPTS, can_self_heal, konchi_kons, veyron_notice_job
 from utils.players import ability_role, getp, kill_player, living, mention, role_label, targets, visible_mention, visible_name
 from utils.state import cancel_game, find_game, games, persist_games
 from utils.telegram_utils import cb_answer, safe_edit, send_private, unpin_lobby
@@ -201,7 +201,8 @@ async def cb_action(update,ctx):
     if not p or not t or not p["alive"] or not t["alive"]: return await cb_answer(q,"O‘yinchi endi mavjud emas.",True)
     if p["action"] is not None: return await cb_answer(q,"Tanlovingiz allaqachon tasdiqlangan.",True)
     r=ability_role(p)
-    if r not in NIGHT_PROMPTS or t["id"]==p["id"]: return await cb_answer(q,"Bu tanlov siz uchun emas.",True)
+    if r not in NIGHT_PROMPTS or (t["id"]==p["id"] and not can_self_heal(p)): return await cb_answer(q,"Bu tanlov siz uchun emas.",True)
+    if t["id"]==p["id"]: p["self_healed"]=True
     if r=="Manipulyator":
         rows=[[InlineKeyboardButton(visible_name(g,x)[:32],callback_data=f"manip2:{gid}:{actor}:{x['id']}")] for x in living(g) if x["id"] not in {p["id"],t["id"]}]
         p["action"]={"type":"manipulator","controlled":t["id"],"selected_at":time.time()}
@@ -329,11 +330,11 @@ async def cb_vote(update,ctx):
     if typ=="vote" and (not t or not t["alive"]):return await cb_answer(q,"Nishon mavjud emas.",True)
     if t and t["id"]==voter["id"]:return await cb_answer(q,"O‘zingizga ovoz bera olmaysiz.",True)
     g["votes"][str(voter["id"])]=t["id"] if t else None
-    text=f"🗳 {_vote_voice(g,voter)} ➡️ {visible_mention(g,t)}ga ovoz berdi." if t else f"🗳 {_vote_voice(g,voter)} ovoz bermaslikni tanladi."
+    text=f"{_vote_voice(g,voter)} ➡️ {visible_mention(g,t)}ga ovoz berdi." if t else f"{_vote_voice(g,voter)} ovoz bermaslikni tanladi."
     try: await ctx.bot.send_message(g["chat_id"],text,parse_mode=ParseMode.HTML)
     except TelegramError: pass
     persist_games()
-    await safe_edit(q,f"🗳 Sizning ovozingiz: {visible_name(g,t)}" if t else "⏭ Ovoz bermaslik tanlandi.",None)
+    await safe_edit(q,f"Sizning ovozingiz: {visible_name(g,t)}" if t else "⏭ Ovoz bermaslik tanlandi.",None)
     await cb_answer(q,"Ovoz qabul qilindi.")
 
 

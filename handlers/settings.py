@@ -18,7 +18,7 @@ ITEM_LABELS = {"protection":"🛡 Himoya","fake_document":"📃 Soxta hujjat","h
                "killer_protection":"⛑️ Qotildan himoya","rifle":"🔫 Miltiq","medicine_protection":"💊 Doridan himoya",
                "slip_protection":"🪤 Sirpanishdan himoya","mask":"🎭 Maska","supper_shield":"🔰 Supper qalqon",
                "hero":"🥷 Geroy","active_role":"🃏 Faol rol"}
-TIME_LABELS = {"night_time":"🌙 Tun","day_time":"☀️ Muhokama","vote_time":"🗳 Ovoz","like_time":"👍 Tasdiqlash","word_time":"💬 So‘nggi so‘z"}
+TIME_LABELS = {"night_time":"🌙 Tun","day_time":"☀️ Muhokama","vote_time":"✋ Ovoz","like_time":"👍 Tasdiqlash","word_time":"💬 So‘nggi so‘z"}
 RULE_LABELS = {"allow_leave":"🚪 /leave ruxsat","last_words":"💬 So‘nggi so‘z","anonymous_votes":"🕶 Anonim ovoz",
                "confirm_hanging":"⚖️ Osishni 👍/👎 tasdiqlash","afk_kick":"😴 2 tun harakatsizni chiqarish"}
 PERM_LEVELS = ["admin","all","owner"]

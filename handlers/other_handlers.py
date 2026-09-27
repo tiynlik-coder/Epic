@@ -5,6 +5,7 @@ import time
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ChatType, ParseMode
+from telegram.error import TelegramError
 from telegram.ext import ContextTypes
 
 from config import ADMIN_ACTIVE_ROLE_PRICES, CURRENCY_SIGN, EPIC_CHANNEL_URL, EPIC_SUPPORT_URL, MIN_PLAYERS, ROLES, SHOP_ITEMS
@@ -44,6 +45,8 @@ async def cmd_start(update:Update,ctx:ContextTypes.DEFAULT_TYPE):
                     active={p.get("team") for p in g["players"].values() if p.get("team")}
                     if len(active)<teams:
                         return await update.message.reply_text("❌ VS o‘yini uchun har bir jamoada kamida 1 ta o‘yinchi bo‘lishi kerak.")
+                try: await update.message.delete()
+                except TelegramError: pass
                 await start_game(ctx.application,g)
                 return
             return await update.message.reply_text(f"👥 Hozir {n} ta o‘yinchi. O‘yinni boshlash uchun kamida {MIN_PLAYERS} ta kerak.")

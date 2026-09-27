@@ -20,7 +20,7 @@ from models.pairs import partner_of
 from models.users import add_stats, consume_inventory, inv
 from utils.game_roles import apply_admin_roles, build_role_list
 from utils.night_actions import expects_action, offer_night_action, resolve_night_effects, send_zombie_rosters, zombie_convert_job
-from utils.players import NIGHT_FIELDS, getp, kill_player, living, mention, numbered_name, role_label, role_lists, side, team_icon, visible_mention, visible_name
+from utils.players import NIGHT_FIELDS, getp, kill_player, living, mention, numbered_name, role_label, role_lists, living_list, side, team_icon, visible_mention, visible_name
 from utils.state import cancel_game, cancel_jobs, find_game, games, persist_games, refund_bounties, schedule_phase, valid_job
 from utils.telegram_utils import is_epic_channel_member, night_image_path, send_private, unpin_lobby
 from utils.texts import ROLE_INTRO
@@ -161,15 +161,15 @@ async def start_night(app,g):
     try: bot_username=(await app.bot.get_me()).username or ""
     except TelegramError: bot_username=""
     night_kb=InlineKeyboardMarkup([[InlineKeyboardButton("🤖 Botga o‘tish",url=f"https://t.me/{bot_username}")]]) if bot_username else None
-    caption=f"🌙 <b>Tun {g['night']}</b> boshlandi.\nBarcha tungi harakatlar tongda birgalikda hal qilinadi. Tonggacha ⏳ {night_time} soniya."
+    caption=(f"<b>Shaharga qorong‘ulik cho‘kdi</b>\nKo‘chaga faqat jasur va qo‘rqmas o‘yinchilar chiqadi. Tunda nimalar bo‘lganini ertalab muhokama qilamiz. Tong otishiga {night_time} soniya qoldi.\n"
+             f"<b>{g['night']}-Tun 🌒</b>")
     path=await night_image_path()
     try:
         if path:
             with open(path,'rb') as f: await app.bot.send_photo(g["chat_id"],InputFile(f),caption=caption,parse_mode=ParseMode.HTML,reply_markup=night_kb)
         else: await app.bot.send_message(g["chat_id"],caption,parse_mode=ParseMode.HTML,reply_markup=night_kb)
     except TelegramError: await app.bot.send_message(g["chat_id"],caption,parse_mode=ParseMode.HTML,reply_markup=night_kb)
-    names="\n".join(html.escape(numbered_name(g,p)) for p in sorted(living(g),key=lambda x:x.get("num",0)))
-    await app.bot.send_message(g["chat_id"],f"👥 <b>Tirik o‘yinchilar:</b>\n{names}",parse_mode=ParseMode.HTML)
+    await app.bot.send_message(g["chat_id"],f"<b>Tirik o‘yinchilar:</b>\n{living_list(g)}",parse_mode=ParseMode.HTML)
     await send_team_rosters(app.bot,g)
     for p in living(g): await offer_night_action(app,g,p)
     if g.get("mode")=="zombie":
@@ -239,14 +239,15 @@ async def start_day(app,g):
         await app.bot.send_message(g["chat_id"],"\n".join(lines),parse_mode=ParseMode.HTML)
         await offer_last_words(app.bot,g,[vp for vp in (getp(g,i["victim"]) for i in nd) if vp and not vp["alive"]])
     else:
-        await app.bot.send_message(g["chat_id"],"<i>Ishonish qiyin! Lekin bu tunda hech kim o‘lmadi...</i>",parse_mode=ParseMode.HTML)
+        await app.bot.send_message(g["chat_id"],"<i>Bugun tun sokin o‘tdi, shaharda qotilliklar bo‘lmadi.</i>",parse_mode=ParseMode.HTML)
     g["night_deaths"]=[]
     # Keep the active game in memory through discussion/voting/night.
     # It is removed only by end_game(), so callbacks and timers remain valid.
     persist_games()
-    a,b,c=role_lists(g)
     day_time=settings_of(g)["day_time"]
-    await app.bot.send_message(g["chat_id"],f"☀️ <b>TONG O‘TDI</b>\n\n{a}\n\n{b}\n\n{c}\n\nJami tirik o'yinchilar: {len(living(g))}\n\nEndi kecha tunda bo'lgan voqealarni muhokama qilamiz. Ovoz berishgacha ⏳ {day_time} soniya.",parse_mode=ParseMode.HTML)
+    parts=[f"🌞 <b>TONG OTDI</b>\n<b>Tirik o‘yinchilar:</b>\n{living_list(g)}",f"Jami: {len(living(g))}",*role_lists(g),
+           f"Endi tunda bo‘lgan ishlarni muhokama qilamiz. Ovoz berishgacha {day_time} soniya."]
+    await app.bot.send_message(g["chat_id"],"\n\n".join(parts),parse_mode=ParseMode.HTML)
     # Temporary +50 HP from Shifokor/Tabib expires at dawn.
     for p in g["players"].values():
         # The bonus is temporary capacity, not damage: any remaining HP stays,
@@ -317,13 +318,13 @@ async def start_voting(ctx):
     if not g or not valid_job(g,d) or g.get("phase")!="discussion": return
     g["phase"]="voting"; g["phase_id"]+=1; g["votes"]={}; cancel_jobs(g); persist_games()
     vote_time=settings_of(g)["vote_time"]
-    await ctx.bot.send_message(g["chat_id"],f"🗳 <b>Aybdorlarni aniqlash vaqti keldi.</b>\nHar bir tirik o‘yinchi shaxsiy chatda ovoz beradi. ⏳ {vote_time} soniya.",parse_mode=ParseMode.HTML)
+    await ctx.bot.send_message(g["chat_id"],f"<b>Aybdorlarni aniqlash vaqti keldi.</b>\nHar bir tirik o‘yinchi shaxsiy chatda ovoz beradi. ⏳ {vote_time} soniya.",parse_mode=ParseMode.HTML)
     for p in living(g):
         if p.get("blocked"):
             await send_private(ctx.bot,p["id"],"💤 Kezuvchining dorisidan uxlab qoldingiz — bugun ovoz bera olmaysiz."); continue
         rows=[[InlineKeyboardButton(numbered_name(g,t)[:40],callback_data=f"vote:{g['id']}:{t['id']}")] for t in sorted(living(g),key=lambda x:x.get("num",0)) if t["id"]!=p["id"]]
         rows.append([InlineKeyboardButton("⏭ Ovoz bermaslik",callback_data=f"skip:{g['id']}")])
-        await send_private(ctx.bot,p["id"],"🗳 <b>Kimni osamiz?</b>\nTanlang:",InlineKeyboardMarkup(rows))
+        await send_private(ctx.bot,p["id"],"<b>Kimni osamiz?</b>\nTirik o‘yinchilar:",InlineKeyboardMarkup(rows))
     schedule_phase(ctx.application,g,vote_time,resolve_vote,"vote")
 
 
@@ -335,7 +336,7 @@ async def resolve_vote(ctx):
         voter=getp(g,int(voter_id))
         if target is not None and voter: counts[target]=counts.get(target,0)+vote_weight(voter)
     if not counts:
-        await ctx.bot.send_message(g["chat_id"],"🗳 Ovoz berish yakunlandi: aholi kelisha olmadi, hech kim osilmadi."); return await after_vote(ctx.application,g)
+        await ctx.bot.send_message(g["chat_id"],"Ovoz berish yakunlandi: aholi kelisha olmadi, hech kim osilmadi."); return await after_vote(ctx.application,g)
     mx=max(counts.values()); top=[uid for uid,c in counts.items() if c==mx]
     if len(top)>1:
         await ctx.bot.send_message(g["chat_id"],"🤝 Ovozlar teng bo‘ldi. Hech kim osilmadi."); return await after_vote(ctx.application,g)
